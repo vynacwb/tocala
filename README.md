@@ -14,6 +14,19 @@ Preencha `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` com
 
 Sem as variáveis do Supabase, as páginas continuam disponíveis em modo visual de demonstração. Com as variáveis configuradas, `/perfil` exige uma sessão válida.
 
+## Banco de dados
+
+O schema usa `auth.users` como fonte de identidade e mantém credenciais fora do schema público. A migração cria:
+
+- `profiles` — dados públicos e tipo da conta;
+- `musician_profiles` e `organizer_profiles` — informações específicas de cada perfil;
+- `events` — eventos e oportunidades publicados por organizadores;
+- `proposals` — propostas entre músicos e organizadores;
+- `messages` — conversa privada vinculada à proposta;
+- `reviews` — avaliações após eventos concluídos.
+
+Todas as tabelas públicas possuem Row Level Security. Perfis, eventos e avaliações têm leitura pública; propostas e mensagens ficam restritas aos participantes.
+
 ## Rotas
 
 - `/` — landing page e busca
