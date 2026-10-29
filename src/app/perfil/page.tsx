@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, Star } from "lucide-react";
+import { ArrowLeft, Settings, Star } from "lucide-react";
 import { Brand } from "@/components/layout/brand";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { Card } from "@/components/ui/card";
@@ -98,7 +98,12 @@ export default async function ProfilePage() {
         <div className="relative mx-auto flex h-[calc(env(safe-area-inset-top)+76px)] max-w-[1200px] items-center justify-between px-5 pt-[env(safe-area-inset-top)] lg:h-20 lg:px-6 lg:pt-0">
           <Link href="/" className="flex size-10 items-center justify-center rounded-xl border border-white/15 bg-white/5 text-[#D6A0FF] transition hover:border-[#BA3BE7] hover:bg-[#6C1EE7]/15" aria-label="Voltar para o início"><ArrowLeft className="size-5" /></Link>
           <div className="absolute left-1/2 -translate-x-1/2"><Brand compact /></div>
-          <SignOutButton configured={configured} />
+          <div className="flex items-center gap-2">
+            <Link href="/perfil/configuracoes" className="flex size-10 items-center justify-center rounded-xl border border-white/15 bg-white/5 text-white/70 transition hover:border-[#BA3BE7] hover:text-[#D6A0FF]" aria-label="Configurações do perfil">
+              <Settings className="size-5" strokeWidth={1.8} />
+            </Link>
+            <SignOutButton configured={configured} />
+          </div>
         </div>
       </header>
 

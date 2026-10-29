@@ -37,7 +37,7 @@ export function AuthForm({ configured }: { configured: boolean }) {
     }
 
     if (!configured) {
-      setError("Configure as variáveis do Supabase em .env.local para ativar a autenticação.");
+      setError("A conexão com o Supabase não está configurada neste ambiente. Adicione as variáveis no .env.local ou no painel do deploy.");
       return;
     }
 
