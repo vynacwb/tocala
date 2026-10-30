@@ -6,6 +6,7 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, Mail, MapPin, Pencil, Phone, Star } from "lucide-react";
 import { Brand } from "@/components/layout/brand";
 import { MobileNav } from "@/components/layout/mobile-nav";
+import { ProfileActionsMenu } from "@/components/profile/profile-actions-menu";
 import { Card } from "@/components/ui/card";
 import { SectionTitle } from "@/components/ui/section-title";
 import { SignOutButton } from "@/components/profile/sign-out-button";
@@ -153,10 +154,13 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
           <div className="absolute left-1/2 -translate-x-1/2"><Brand compact /></div>
           <div className="flex items-center gap-2">
             {!isPublicView && <>
-            <Link href="/perfil/configuracoes" className="flex size-10 items-center justify-center rounded-xl border border-white/15 bg-white/5 text-white/70 transition hover:border-[#BA3BE7] hover:text-[#D6A0FF]" aria-label="Personalização do perfil">
-              <Pencil className="size-5" strokeWidth={1.8} />
-            </Link>
-            <SignOutButton configured={configured} />
+            <div className="hidden items-center gap-2 lg:flex">
+              <Link href="/perfil/configuracoes" className="flex size-10 items-center justify-center rounded-xl border border-white/15 bg-white/5 text-white/70 transition hover:border-[#BA3BE7] hover:text-[#D6A0FF]" aria-label="Personalização do perfil">
+                <Pencil className="size-5" strokeWidth={1.8} />
+              </Link>
+              <SignOutButton configured={configured} />
+            </div>
+            <ProfileActionsMenu configured={configured} />
             </>}
           </div>
         </div>

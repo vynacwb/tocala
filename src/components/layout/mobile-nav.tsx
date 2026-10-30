@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Bell, CircleDollarSign, House, Trophy } from "lucide-react";
+import { Bell, CircleDollarSign, House, Trophy, UserRound } from "lucide-react";
 import { useToast } from "@/components/providers/app-providers";
-import { AccountMenu } from "@/components/layout/account-menu";
 import { createClient } from "@/utils/supabase/client";
 import { isSupabaseConfigured } from "@/utils/supabase/config";
 
@@ -52,10 +52,10 @@ export function MobileNav() {
         <button type="button" onClick={() => toast("Notificações estarão disponíveis em breve.")} aria-label="Notificações, em breve" className="mx-auto flex size-12 flex-col items-center justify-center gap-0.5 rounded-xl text-white/65 transition hover:bg-white/5 hover:text-[#D6A0FF] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#BA3BE7]">
           <Bell className="size-5" strokeWidth={1.8} /><span className="text-[9px] leading-none">Notificações</span>
         </button>
-        <div className="mx-auto flex flex-col items-center justify-center gap-0.5">
-          <AccountMenu account={account} configured={configured} compact dropUp active={isProfileActive} />
-          <span className="pointer-events-none text-[9px] leading-none text-white/65">Perfil</span>
-        </div>
+        <Link href="/perfil" aria-label="Abrir perfil" aria-current={isProfileActive ? "page" : undefined} className={`mx-auto flex size-12 flex-col items-center justify-center gap-0.5 overflow-hidden rounded-xl transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#BA3BE7] ${isProfileActive ? "bg-[#6C1EE7]/25 text-[#D6A0FF] shadow-inner shadow-[#BA3BE7]/15" : "text-white/65 hover:bg-white/5 hover:text-[#D6A0FF]"}`}>
+          {account?.avatarUrl ? <Image src={account.avatarUrl} alt="" width={24} height={24} unoptimized style={{ objectPosition: `${account.avatarPositionX}% ${account.avatarPositionY}%` }} className={`size-6 rounded-full object-cover ${isProfileActive ? "ring-1 ring-[#D6A0FF]" : ""}`} /> : <UserRound className="size-5" strokeWidth={isProfileActive ? 2.3 : 1.8} />}
+          <span className="text-[9px] leading-none">Perfil</span>
+        </Link>
       </div>
     </nav>
   );
