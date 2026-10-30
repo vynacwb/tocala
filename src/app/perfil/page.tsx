@@ -126,11 +126,11 @@ async function getProfileData(publicArtistId?: string): Promise<{ profile: Profi
     city: profileData?.city || "",
     state: profileData?.state || "",
     level: profileData?.level ?? demoProfile.level,
-    rating: Number(profileData?.rating ?? demoProfile.rating),
-    review_count: profileData?.review_count ?? demoProfile.review_count,
+    rating: Number(profileData?.rating ?? 0),
+    review_count: profileData?.review_count ?? 0,
   };
 
-  return { profile, reviews: reviewsData?.length ? reviewsData : demoReviews, isPublicView: false };
+  return { profile, reviews: reviewsData ?? [], isPublicView: false };
 }
 
 function Rating({ value, label }: { value: number; label: string }) {
@@ -183,7 +183,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
               <div className="inline-flex h-12 items-center gap-2 rounded-xl bg-[#FBBF24] px-3.5 font-bold text-[#1A1A1A] shadow-lg shadow-[#FBBF24]/15" aria-label={`Nível ${profile.level}`}>
                 <Star className="size-6" strokeWidth={1.8} /><span className="text-lg">{String(profile.level).padStart(2, "0")}</span>
               </div>
-              <div className="text-[21px] lg:text-[27px]"><Rating value={profile.rating} label={`Avaliação ${profile.rating.toLocaleString("pt-BR")} de 5 estrelas`} /></div>
+              <div className="text-[21px] lg:text-[27px]">{profile.review_count > 0 ? <Rating value={profile.rating} label={`Avaliação ${profile.rating.toLocaleString("pt-BR")} de 5 estrelas`} /> : <span className="text-base font-semibold text-white/55" aria-label="Sem avaliações">--</span>}</div>
             </div>
           </div>
         </Card>
@@ -210,9 +210,10 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
         <Card className="bg-[#222226] p-6 lg:p-8">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <SectionTitle>Avaliações:</SectionTitle>
-            <span className="text-sm font-medium text-[#FBBF24]">★ {profile.rating.toLocaleString("pt-BR", { minimumFractionDigits: 1 })} <span className="text-white/45">({profile.review_count} avaliações)</span></span>
+            {profile.review_count > 0 ? <span className="text-sm font-medium text-[#FBBF24]">★ {profile.rating.toLocaleString("pt-BR", { minimumFractionDigits: 1 })} <span className="text-white/45">({profile.review_count} avaliações)</span></span> : <span className="text-sm font-medium text-white/55" aria-label="Sem avaliações">--</span>}
           </div>
           <div className="mt-6 grid gap-4 lg:grid-cols-2">
+            {reviews.length === 0 && <p className="text-sm text-white/50">Ainda não há avaliações.</p>}
             {reviews.map((review) => (
               <article key={review.id} className="rounded-xl border border-white/10 bg-[#1A1A1A] p-4 lg:p-5">
                 <div className="flex items-start gap-3">
