@@ -8,7 +8,7 @@ import { createClient } from "@/utils/supabase/server";
 
 export async function Navbar() {
   const configured = isSupabaseConfigured();
-  let account: { avatarUrl: string | null; avatarPositionX: number; avatarPositionY: number } | null = null;
+  let account: { profileId: string; avatarUrl: string | null; avatarPositionX: number; avatarPositionY: number } | null = null;
 
   if (configured) {
     const supabase = await createClient();
@@ -16,6 +16,7 @@ export async function Navbar() {
     if (user) {
       const { data } = await supabase.from("profiles").select("avatar_url, avatar_position_x, avatar_position_y").eq("id", user.id).maybeSingle();
       account = {
+        profileId: user.id,
         avatarUrl: data?.avatar_url ?? null,
         avatarPositionX: data?.avatar_position_x ?? 50,
         avatarPositionY: data?.avatar_position_y ?? 50,
@@ -50,7 +51,7 @@ export async function Navbar() {
             <Link href="/login" className="inline-flex h-9 items-center justify-center rounded-lg border border-white/20 px-3 text-xs font-semibold text-white/85 transition hover:border-[#BA3BE7] hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7] lg:h-10 lg:px-4 lg:text-sm">Login</Link>
             <Link href="/login?modo=cadastro" className="inline-flex h-9 items-center justify-center rounded-lg bg-[#6C1EE7] px-3 text-xs font-semibold text-white transition hover:bg-[#BA3BE7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7] lg:h-10 lg:px-4 lg:text-sm">Register</Link>
           </>}
-          {account && <NotificationBell variant="desktop" />}
+          {account && <NotificationBell profileId={account.profileId} variant="desktop" />}
           {account && <div className="hidden lg:block"><AccountMenu account={account} configured={configured} /></div>}
         </div>
       </div>

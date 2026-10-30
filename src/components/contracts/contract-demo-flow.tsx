@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { addDemoReview } from "@/lib/demo-reviews";
+import { addUserNotification } from "@/lib/user-notifications";
 import Image from "next/image";
 import { ArrowLeft, ArrowRight, CalendarDays, Check, CircleAlert, Clock3, MapPin, Star } from "lucide-react";
 import { Brand } from "@/components/layout/brand";
@@ -218,6 +219,7 @@ export function ContractDemoFlow({ artist }: { artist: Artist }) {
   function saveDemoReview() {
     try {
       addDemoReview({ artistId: artist.id, authorName: "Contratante fictício", rating: reviewRating, comment: reviewComment.trim() });
+      addUserNotification(artist.id, { title: "Você recebeu uma nova avaliação", detail: `Uma contratação de demonstração avaliou seu perfil com ${reviewRating} ${reviewRating === 1 ? "estrela" : "estrelas"}.` });
     } catch {
       toast("Não foi possível mostrar a avaliação simulada neste navegador.", "error");
       return;

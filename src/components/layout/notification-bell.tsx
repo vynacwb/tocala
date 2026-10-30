@@ -3,19 +3,35 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Bell, Check, MoreVertical, Settings } from "lucide-react";
+import { getUserNotifications, updateUserNotifications, USER_NOTIFICATIONS_CHANGE_EVENT, type UserNotification } from "@/lib/user-notifications";
 
-const notifications = [
-  { id: "review", title: "Você recebeu uma nova avaliação", detail: "Uma contratação fictícia avaliou sua apresentação.", time: "há alguns minutos", initials: "★", color: "bg-amber-500/20 text-amber-200" },
-  { id: "profile", title: "Seu perfil está pronto para ser descoberto", detail: "Confira suas informações e disponibilidade.", time: "ontem", initials: "T", color: "bg-[#6C1EE7]/25 text-[#E4C9FF]" },
-  { id: "booking", title: "Novas oportunidades começam aqui", detail: "Mantenha seu perfil atualizado para contratantes.", time: "há 3 dias", initials: "♫", color: "bg-emerald-500/15 text-emerald-200" },
-];
+function relativeTime(value: string) {
+  const minutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60000));
+  if (minutes < 1) return "agora";
+  if (minutes < 60) return `há ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `há ${hours} h`;
+  const days = Math.floor(hours / 24);
+  return `há ${days} dia${days === 1 ? "" : "s"}`;
+}
 
-export function NotificationBell({ variant = "desktop" }: { variant?: "desktop" | "mobile" }) {
+export function NotificationBell({ profileId, variant = "desktop" }: { profileId: string; variant?: "desktop" | "mobile" }) {
   const [open, setOpen] = useState(false);
-  const [read, setRead] = useState<string[]>([]);
-  const [hidden, setHidden] = useState<string[]>([]);
+  const [notifications, setNotifications] = useState<UserNotification[]>([]);
   const rootRef = useRef<HTMLDivElement>(null);
-  const unreadCount = notifications.filter((item) => !read.includes(item.id) && !hidden.includes(item.id)).length;
+  const visibleNotifications = notifications.filter((item) => !item.hidden);
+  const unreadCount = visibleNotifications.filter((item) => !item.read).length;
+
+  useEffect(() => {
+    const refresh = () => setNotifications(getUserNotifications(profileId));
+    refresh();
+    window.addEventListener("storage", refresh);
+    window.addEventListener(USER_NOTIFICATIONS_CHANGE_EVENT, refresh);
+    return () => {
+      window.removeEventListener("storage", refresh);
+      window.removeEventListener(USER_NOTIFICATIONS_CHANGE_EVENT, refresh);
+    };
+  }, [profileId]);
 
   useEffect(() => {
     function closeOutside(event: MouseEvent) {
@@ -44,20 +60,20 @@ export function NotificationBell({ variant = "desktop" }: { variant?: "desktop" 
       <header className="flex items-center justify-between border-b border-white/10 px-4 py-4 sm:px-5">
         <div><h2 className="text-base font-semibold">Notificações</h2><p className="mt-0.5 text-xs text-white/45">{unreadCount ? `${unreadCount} não lidas` : "Tudo em dia"}</p></div>
         <div className="flex items-center gap-1">
-          <button type="button" onClick={() => setRead(notifications.map((item) => item.id))} aria-label="Marcar todas como lidas" title="Marcar todas como lidas" className="flex size-9 items-center justify-center rounded-lg text-white/55 transition hover:bg-white/5 hover:text-[#D6A0FF]"><Check className="size-4" /></button>
+          <button type="button" onClick={() => setNotifications(updateUserNotifications(profileId, (items) => items.map((item) => ({ ...item, read: true }))))} aria-label="Marcar todas como lidas" title="Marcar todas como lidas" className="flex size-9 items-center justify-center rounded-lg text-white/55 transition hover:bg-white/5 hover:text-[#D6A0FF]"><Check className="size-4" /></button>
           <Link href="/notificacoes" onClick={() => setOpen(false)} aria-label="Configurações de notificações" className="flex size-9 items-center justify-center rounded-lg text-white/55 transition hover:bg-white/5 hover:text-[#D6A0FF]"><Settings className="size-4" /></Link>
         </div>
       </header>
       <div className="overflow-y-auto">
         <p className="px-4 pb-2 pt-3 text-xs font-semibold text-white/45 sm:px-5">Recentes</p>
-        {notifications.filter((item) => !hidden.includes(item.id)).map((item) => <article key={item.id} className={`group flex gap-3 px-4 py-3 transition hover:bg-white/[0.035] sm:px-5 ${read.includes(item.id) ? "opacity-65" : ""}`}>
-          <span className={`flex size-11 shrink-0 items-center justify-center rounded-full text-base font-bold ${item.color}`}>{item.initials}</span>
-          <button type="button" onClick={() => setRead((current) => current.includes(item.id) ? current : [...current, item.id])} className="min-w-0 flex-1 text-left">
-            <p className="text-sm leading-snug text-white/90">{item.title}</p><p className="mt-1 text-xs leading-relaxed text-white/55">{item.detail}</p><p className="mt-1.5 text-[11px] text-white/40">{item.time}</p>
+        {visibleNotifications.map((item) => <article key={item.id} className={`group flex gap-3 px-4 py-3 transition hover:bg-white/[0.035] sm:px-5 ${item.read ? "opacity-65" : ""}`}>
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[#6C1EE7]/25 text-[#E4C9FF]"><Bell className="size-5" /></span>
+          <button type="button" onClick={() => setNotifications(updateUserNotifications(profileId, (items) => items.map((entry) => entry.id === item.id ? { ...entry, read: true } : entry)))} className="min-w-0 flex-1 text-left">
+            <p className="text-sm leading-snug text-white/90">{item.title}</p><p className="mt-1 text-xs leading-relaxed text-white/55">{item.detail}</p><p className="mt-1.5 text-[11px] text-white/40">{relativeTime(item.createdAt)}</p>
           </button>
-          <div className="flex shrink-0 flex-col items-center gap-1"><button type="button" onClick={() => setHidden((current) => [...current, item.id])} aria-label="Ocultar notificação" className="flex size-8 items-center justify-center rounded-full text-white/45 opacity-100 transition hover:bg-white/10 hover:text-white sm:opacity-0 sm:group-hover:opacity-100"><MoreVertical className="size-4" /></button>{!read.includes(item.id) && <span className="size-2 rounded-full bg-[#3EA6FF]" aria-label="Não lida" />}</div>
+          <div className="flex shrink-0 flex-col items-center gap-1"><button type="button" onClick={() => setNotifications(updateUserNotifications(profileId, (items) => items.map((entry) => entry.id === item.id ? { ...entry, hidden: true } : entry)))} aria-label="Ocultar notificação" className="flex size-8 items-center justify-center rounded-full text-white/45 opacity-100 transition hover:bg-white/10 hover:text-white sm:opacity-0 sm:group-hover:opacity-100"><MoreVertical className="size-4" /></button>{!item.read && <span className="size-2 rounded-full bg-[#3EA6FF]" aria-label="Não lida" />}</div>
         </article>)}
-        {hidden.length === notifications.length && <p className="px-5 py-10 text-center text-sm text-white/50">Nenhuma notificação por enquanto.</p>}
+        {visibleNotifications.length === 0 && <p className="px-5 py-10 text-center text-sm text-white/50">Você não tem notificações por enquanto.</p>}
       </div>
       <footer className="border-t border-white/10 p-3 text-center"><Link href="/notificacoes" onClick={() => setOpen(false)} className="text-xs font-semibold text-[#D6A0FF] hover:text-white">Ver todas as notificações</Link></footer>
     </section>}
