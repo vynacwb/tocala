@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Bell } from "lucide-react";
 import { Brand } from "./brand";
 import { AccountMenu } from "./account-menu";
+import { DesktopComingSoon } from "./desktop-coming-soon";
 import { isSupabaseConfigured } from "@/utils/supabase/config";
 import { createClient } from "@/utils/supabase/server";
 
@@ -38,6 +39,7 @@ export async function Navbar() {
           <Link href="/#explorar" className="transition hover:text-[#D6A0FF]">Explorar</Link>
           <Link href="/#busca" className="transition hover:text-[#D6A0FF]">Casas de Show</Link>
           <Link href="/#destaques" className="transition hover:text-[#D6A0FF]">Como Funciona</Link>
+          <DesktopComingSoon />
         </nav>
 
         <div className="hidden items-center gap-4 lg:flex">
