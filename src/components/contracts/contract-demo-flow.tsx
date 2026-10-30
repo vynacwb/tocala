@@ -67,11 +67,10 @@ function DateField({ value, onChange, min }: { value: string; onChange: (value: 
 
   return <div>
     <span className="mb-2 block text-sm font-medium text-white/80">Dia do evento</span>
-    {mode === "calendar" ? <input type="date" required min={min} value={value} onChange={(event) => onChange(event.target.value)} aria-label="Dia do evento" className={inputClass} /> : <input type="text" required inputMode="numeric" autoComplete="off" maxLength={10} pattern="[0-9]{2}/[0-9]{2}/[0-9]{4}" placeholder="DD/MM/AAAA" value={typedDate} onChange={(event) => updateTypedDate(event.target.value)} aria-label="Dia do evento no formato dia, mês e ano" className={inputClass} />}
+    {mode === "calendar" ? <input type="date" required min={min} value={value} onChange={(event) => onChange(event.target.value)} onClick={(event) => event.currentTarget.showPicker?.()} aria-label="Dia do evento" className={`${inputClass} cursor-pointer`} /> : <input type="text" required inputMode="numeric" autoComplete="off" maxLength={10} pattern="[0-9]{2}/[0-9]{2}/[0-9]{4}" placeholder="DD/MM/AAAA" value={typedDate} onChange={(event) => updateTypedDate(event.target.value)} aria-label="Dia do evento no formato dia, mês e ano" className={inputClass} />}
     {mode === "typing" && <p className="mt-1.5 text-xs text-white/40">Digite a data como dia/mês/ano.</p>}
-    <div className="mt-2 flex gap-2">
-      <button type="button" onClick={() => setMode("calendar")} aria-pressed={mode === "calendar"} className={`rounded-lg px-3 py-2 text-xs font-medium transition ${mode === "calendar" ? "bg-[#6C1EE7]/25 text-[#E4C9FF]" : "text-white/55 hover:bg-white/5"}`}><CalendarDays className="mr-1.5 inline size-3.5" />Calendário</button>
-      <button type="button" onClick={() => { setTypedDate(toBrazilianDate(value)); setMode("typing"); }} aria-pressed={mode === "typing"} className={`rounded-lg px-3 py-2 text-xs font-medium transition ${mode === "typing" ? "bg-[#6C1EE7]/25 text-[#E4C9FF]" : "text-white/55 hover:bg-white/5"}`}>Digitar data</button>
+    <div className="mt-2">
+      <button type="button" onClick={() => { if (mode === "calendar") { setTypedDate(toBrazilianDate(value)); setMode("typing"); } else setMode("calendar"); }} aria-pressed={mode === "typing"} className="rounded-lg px-3 py-2 text-xs font-medium text-white/60 transition hover:bg-white/5 hover:text-white">{mode === "calendar" ? "Digitar data" : "Usar calendário"}</button>
     </div>
   </div>;
 }
@@ -106,6 +105,7 @@ function TimeField({ label, value, onChange, required = false }: { label: string
 
   function chooseHour(hour: number) {
     setSelectedHour(hour);
+    setSelectedMinute(0);
     setSelecting("minute");
   }
 
@@ -121,10 +121,10 @@ function TimeField({ label, value, onChange, required = false }: { label: string
   function openClock() {
     if (value) {
       setSelectedHour(Number(value.slice(0, 2)));
-      setSelectedMinute(Number(value.slice(3, 5)));
     }
+    setSelectedMinute(0);
     setMode("clock");
-    setClockOpen((open) => !open);
+    setClockOpen(true);
     setSelecting("hour");
   }
 
@@ -135,13 +135,11 @@ function TimeField({ label, value, onChange, required = false }: { label: string
 
   return <div>
     <span className="mb-2 block text-sm font-medium text-white/80">{label}</span>
-    <div className="flex gap-2">
-      <input type="text" readOnly={mode === "clock"} required={required} pattern={mode === "typing" ? "(?:[01][0-9]|2[0-3]):[0-5][0-9]" : undefined} value={mode === "clock" ? value : typedTime} onChange={(event) => updateTypedTime(event.target.value)} onBlur={mode === "typing" ? completeTypedHour : undefined} placeholder="HH:MM" inputMode={mode === "typing" ? "numeric" : undefined} aria-label={label} className={`${inputClass} min-w-0`} />
-      <button type="button" onClick={openClock} aria-label="Escolher horário no relógio" aria-expanded={clockOpen} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-[#101010]/70 text-white/70 transition hover:border-[#BA3BE7] hover:text-white"><Clock3 className="size-5" /></button>
+    <div>
+      <input type="text" readOnly={mode === "clock"} required={required} pattern={mode === "typing" ? "(?:[01][0-9]|2[0-3]):[0-5][0-9]" : undefined} value={mode === "clock" ? value : typedTime} onChange={(event) => updateTypedTime(event.target.value)} onBlur={mode === "typing" ? completeTypedHour : undefined} onClick={mode === "clock" ? openClock : undefined} placeholder="HH:MM" inputMode={mode === "typing" ? "numeric" : undefined} aria-label={label} aria-expanded={mode === "clock" ? clockOpen : undefined} className={`${inputClass} ${mode === "clock" ? "cursor-pointer" : ""}`} />
     </div>
-    <div className="mt-2 flex gap-2">
-      <button type="button" onClick={() => { if (value) { setSelectedHour(Number(value.slice(0, 2))); setSelectedMinute(Number(value.slice(3, 5))); } setMode("clock"); setClockOpen(true); setSelecting("hour"); }} aria-pressed={mode === "clock"} className={`rounded-lg px-3 py-2 text-xs font-medium transition ${mode === "clock" ? "bg-[#6C1EE7]/25 text-[#E4C9FF]" : "text-white/55 hover:bg-white/5"}`}><Clock3 className="mr-1.5 inline size-3.5" />Relógio</button>
-      <button type="button" onClick={() => { setMode("typing"); setClockOpen(false); setTypedTime(value); }} aria-pressed={mode === "typing"} className={`rounded-lg px-3 py-2 text-xs font-medium transition ${mode === "typing" ? "bg-[#6C1EE7]/25 text-[#E4C9FF]" : "text-white/55 hover:bg-white/5"}`}>Digitar horário</button>
+    <div className="mt-2 flex items-center gap-2">
+      <button type="button" onClick={() => { if (mode === "clock") { setMode("typing"); setClockOpen(false); setTypedTime(value); } else { setMode("clock"); setSelectedHour(value ? Number(value.slice(0, 2)) : 19); setSelectedMinute(0); } }} aria-pressed={mode === "typing"} className="rounded-lg px-3 py-2 text-xs font-medium text-white/60 transition hover:bg-white/5 hover:text-white">{mode === "clock" ? "Digitar horário" : "Usar relógio"}</button>
       {mode === "typing" && <span className="self-center text-xs text-white/40">Digite 19 para completar 19:00.</span>}
     </div>
     {clockOpen && mode === "clock" && <div className="relative z-20 mt-2 w-full max-w-[320px] rounded-2xl border border-white/10 bg-[#1A1A1D] p-4 shadow-2xl">
