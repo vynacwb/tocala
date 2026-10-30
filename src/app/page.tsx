@@ -9,13 +9,18 @@ import { ArtistCard } from "@/components/home/artist-card";
 import { SearchPanel } from "@/components/home/search-panel";
 import { featuredArtists } from "@/lib/artists";
 import type { Artist } from "@/lib/artists";
+import { MUSIC_GENRES, normalizeGenre } from "@/lib/genres";
 import { isSupabaseConfigured } from "@/utils/supabase/config";
 import { createClient } from "@/utils/supabase/server";
 
 export const metadata: Metadata = { title: "Encontre seu palco" };
 
-export default async function HomePage({ searchParams }: { searchParams: Promise<{ busca?: string }> }) {
-  const { busca = "" } = await searchParams;
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ busca?: string | string[]; generos?: string | string[] }> }) {
+  const { busca: rawQuery, generos: rawGenres } = await searchParams;
+  const busca = Array.isArray(rawQuery) ? rawQuery[0] ?? "" : rawQuery ?? "";
+  const requestedGenres = Array.isArray(rawGenres) ? rawGenres : rawGenres ? [rawGenres] : [];
+  const availableGenres = new Set<string>(MUSIC_GENRES);
+  const initialGenres = [...new Set(requestedGenres.flatMap((value) => value.split(",")).map((genre) => genre.trim()).filter((genre) => availableGenres.has(genre)))];
   let artists: Artist[] = featuredArtists;
 
   if (isSupabaseConfigured()) {
@@ -46,9 +51,17 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   }
 
   const normalizedQuery = busca.trim().toLocaleLowerCase("pt-BR");
-  const matchingArtists = normalizedQuery
-    ? artists.filter((artist) => [artist.name, artist.realName, artist.username, artist.genre, artist.city, artist.state].some((value) => value?.toLocaleLowerCase("pt-BR").includes(normalizedQuery)))
-    : artists;
+  const selectedGenres = new Set(initialGenres.map(normalizeGenre));
+  const matchingArtists = artists.filter((artist) => {
+    const matchesText = !normalizedQuery || [artist.name, artist.realName, artist.username, artist.genre, artist.city, artist.state].some((value) => value?.toLocaleLowerCase("pt-BR").includes(normalizedQuery));
+    const matchesGenre = selectedGenres.size === 0 || selectedGenres.has(normalizeGenre(artist.genre));
+    return matchesText && matchesGenre;
+  });
+  const noResultsMessage = busca
+    ? `Nenhum perfil encontrado para “${busca}”.`
+    : initialGenres.length > 0
+      ? "Nenhum perfil encontrado com os gêneros selecionados."
+      : "Nenhum artista encontrado no momento.";
 
   return (
     <div className="mx-auto min-h-dvh max-w-[400px] bg-[#1A1A1A] shadow-2xl shadow-black/40 lg:max-w-none lg:bg-[#101010] lg:shadow-none">
@@ -66,7 +79,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
               </h1>
               <p className="mt-6 max-w-[565px] text-lg leading-relaxed text-white/60">Conecte-se com músicos, bandas e contratantes para o evento perfeito.</p>
             </div>
-            <SearchPanel initialQuery={busca} />
+            <SearchPanel key={`${busca}|${initialGenres.join(",")}`} initialQuery={busca} initialGenres={initialGenres} />
           </div>
 
           <div className="relative order-1 lg:order-2">
@@ -100,7 +113,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-6">
             {matchingArtists.map((artist) => <ArtistCard key={artist.id} artist={artist} />)}
           </div>
-          {matchingArtists.length === 0 && <p className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-white/55">Nenhum perfil encontrado para “{busca}”.</p>}
+          {matchingArtists.length === 0 && <p className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-white/55">{noResultsMessage}</p>}
         </section>
       </main>
       <Footer />

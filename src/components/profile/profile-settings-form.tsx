@@ -9,9 +9,9 @@ import { useToast } from "@/components/providers/app-providers";
 import { Button } from "@/components/ui/button";
 import type { CareerExperience, ProfileSettingsActionState, ProfileSettingsData } from "@/lib/profile-settings";
 import { createClient } from "@/utils/supabase/client";
+import { MUSIC_GENRES } from "@/lib/genres";
 
 const initialActionState: ProfileSettingsActionState = { status: "idle", message: "", submissionId: 0 };
-const genres = ["MPB", "Rock", "Pop", "Sertanejo", "Jazz", "Blues", "Samba", "Pagode", "Eletrônica", "Hip-hop", "Soul", "Forró", "Outro"];
 
 function FieldLabel({ children, optional = false }: { children: React.ReactNode; optional?: boolean }) {
   return (
@@ -201,7 +201,7 @@ export function ProfileSettingsForm({ initialData, configured }: { initialData: 
               <FieldLabel>Estilo musical</FieldLabel>
               <select name="genre" value={genre} onChange={(event) => setGenre(event.target.value)} required className="h-14 w-full appearance-none rounded-xl border border-white/15 bg-[#101010]/70 px-4 pr-12 text-sm text-white outline-none transition focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20">
                 <option value="" disabled>Selecione seu estilo</option>
-                {genres.map((item) => <option key={item} value={item}>{item}</option>)}
+                {MUSIC_GENRES.map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
               <ChevronDown className="pointer-events-none absolute bottom-[18px] right-4 size-4 text-[#D6A0FF]" />
             </label>
