@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { Bell } from "lucide-react";
 import { Brand } from "./brand";
+import { NotificationBell } from "./notification-bell";
 import { AccountMenu } from "./account-menu";
 import { DesktopComingSoon } from "./desktop-coming-soon";
 import { isSupabaseConfigured } from "@/utils/supabase/config";
@@ -50,7 +50,7 @@ export async function Navbar() {
             <Link href="/login" className="inline-flex h-9 items-center justify-center rounded-lg border border-white/20 px-3 text-xs font-semibold text-white/85 transition hover:border-[#BA3BE7] hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7] lg:h-10 lg:px-4 lg:text-sm">Login</Link>
             <Link href="/login?modo=cadastro" className="inline-flex h-9 items-center justify-center rounded-lg bg-[#6C1EE7] px-3 text-xs font-semibold text-white transition hover:bg-[#BA3BE7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7] lg:h-10 lg:px-4 lg:text-sm">Register</Link>
           </>}
-          {account && <Link href="/notificacoes" className="flex size-11 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white/70 transition hover:border-[#BA3BE7] hover:bg-[#6C1EE7]/15 hover:text-[#D6A0FF]" aria-label="Notificações"><Bell className="size-5" strokeWidth={1.8} /></Link>}
+          {account && <NotificationBell variant="desktop" />}
           {account && <div className="hidden lg:block"><AccountMenu account={account} configured={configured} /></div>}
         </div>
       </div>

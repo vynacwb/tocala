@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { addDemoReview } from "@/lib/demo-reviews";
 import Image from "next/image";
 import { ArrowLeft, ArrowRight, CalendarDays, Check, CircleAlert, Clock3, MapPin, Star } from "lucide-react";
 import { Brand } from "@/components/layout/brand";
@@ -216,12 +217,12 @@ export function ContractDemoFlow({ artist }: { artist: Artist }) {
 
   function saveDemoReview() {
     try {
-      sessionStorage.setItem("tocala-demo-contract-review", JSON.stringify({ artistId: artist.id, rating: reviewRating, comment: reviewComment.trim() }));
+      addDemoReview({ artistId: artist.id, authorName: "Contratante fictício", rating: reviewRating, comment: reviewComment.trim() });
     } catch {
       toast("Não foi possível mostrar a avaliação simulada neste navegador.", "error");
       return;
     }
-    router.push(`/perfil?artista=${encodeURIComponent(artist.id)}&avaliacaoDemo=1`);
+    router.push(`/perfil?artista=${encodeURIComponent(artist.id)}`);
   }
 
   const canGoBack = stage !== "details";

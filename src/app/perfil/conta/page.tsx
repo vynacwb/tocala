@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, Settings } from "lucide-react";
+import { ArrowLeft, Settings, Trash2 } from "lucide-react";
 import { Brand } from "@/components/layout/brand";
 import { Card } from "@/components/ui/card";
 import { DeleteProfileButton } from "@/components/profile/delete-profile-button";
@@ -35,10 +35,17 @@ export default async function AccountSettingsPage() {
         <p className="mt-2 text-sm leading-relaxed text-white/55">Gerencie sua conta no TocaLá.</p>
       </div>
 
-      <Card className="border-rose-400/20 bg-[#1A1A1A] p-5 sm:p-7">
-        <h2 className="text-xl font-semibold text-white">Excluir perfil</h2>
-        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/60">A exclusão remove sua conta de acesso, seu perfil, as fotos enviadas ao TocaLá e os dados associados no Supabase, incluindo disponibilidade, eventos, propostas, mensagens e avaliações. Essa ação é permanente.</p>
-        <div className="mt-5"><DeleteProfileButton configured={configured} /></div>
+      <Card className="border-white/10 bg-[#1A1A1A] p-0">
+        <div className="flex flex-col gap-4 rounded-2xl p-5 transition hover:bg-white/[0.025] sm:flex-row sm:items-center sm:justify-between sm:p-6">
+          <div className="flex items-start gap-4">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-rose-300/15 bg-rose-400/[0.07] text-rose-200"><Trash2 className="size-5" /></span>
+            <div>
+              <h2 className="text-base font-semibold text-white">Excluir conta</h2>
+              <p className="mt-1 max-w-xl text-sm leading-relaxed text-white/50">Exclui permanentemente sua conta e os dados associados.</p>
+            </div>
+          </div>
+          <DeleteProfileButton configured={configured} />
+        </div>
       </Card>
     </main>
   </div>;

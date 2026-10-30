@@ -1,13 +1,12 @@
 /* eslint-disable @next/next/no-img-element */
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, CalendarDays, Mail, MapPin, Pencil, Phone, Settings, Star } from "lucide-react";
 import { Brand } from "@/components/layout/brand";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { ProfileActionsMenu } from "@/components/profile/profile-actions-menu";
-import { DemoReviewNotice } from "@/components/profile/demo-review-notice";
+import { ProfileRatingSummary, ProfileReviews } from "@/components/profile/profile-ratings";
 import { Card } from "@/components/ui/card";
 import { SectionTitle } from "@/components/ui/section-title";
 import { SignOutButton } from "@/components/profile/sign-out-button";
@@ -19,6 +18,7 @@ export const metadata: Metadata = { title: "Perfil" };
 export const dynamic = "force-dynamic";
 
 type Profile = {
+  id: string;
   full_name: string;
   contact_email: string;
   contact_phone: string;
@@ -46,6 +46,7 @@ type Review = {
 };
 
 const demoProfile: Profile = {
+  id: "marina-luz",
   full_name: "Marina Luz",
   contact_email: "contato@marinaluz.com",
   contact_phone: "+55 11 99999-1234",
@@ -64,18 +65,13 @@ const demoProfile: Profile = {
   review_count: 48,
 };
 
-const demoReviews: Review[] = [
-  { id: "1", author_name: "Ana Costa", author_avatar_url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80", body: "Tal artista é show!!", rating: 5 },
-  { id: "2", author_name: "Pedro Martins", author_avatar_url: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80", body: "Show incrível, recomendo demais!", rating: 5 },
-];
-
 function whatsappUrl(phone: string) {
   const digits = phone.replace(/\D/g, "");
   return `https://wa.me/${digits.startsWith("55") ? digits : `55${digits}`}`;
 }
 
 async function getProfileData(publicArtistId?: string): Promise<{ profile: Profile; reviews: Review[]; isPublicView: boolean }> {
-  if (!isSupabaseConfigured()) return { profile: demoProfile, reviews: demoReviews, isPublicView: Boolean(publicArtistId) };
+  if (!isSupabaseConfigured()) return { profile: demoProfile, reviews: [], isPublicView: Boolean(publicArtistId) };
 
   const supabase = await createClient();
 
@@ -88,6 +84,7 @@ async function getProfileData(publicArtistId?: string): Promise<{ profile: Profi
     if (!profileData) notFound();
     const profile: Profile = {
       ...demoProfile,
+      id: publicArtistId,
       full_name: profileData.stage_name || profileData.real_name || profileData.full_name || profileData.username,
       username: profileData.username,
       genre: profileData.genre,
@@ -118,6 +115,7 @@ async function getProfileData(publicArtistId?: string): Promise<{ profile: Profi
 
   const profile: Profile = {
     ...demoProfile,
+    id: user.id,
     full_name: profileData?.stage_name || profileData?.real_name || profileData?.full_name || user.user_metadata.full_name || demoProfile.full_name,
     username: profileData?.username || user.email?.split("@")[0] || demoProfile.username,
     genre: profileData?.genre || demoProfile.genre,
@@ -139,16 +137,8 @@ async function getProfileData(publicArtistId?: string): Promise<{ profile: Profi
   return { profile, reviews: reviewsData ?? [], isPublicView: false };
 }
 
-function Rating({ value, label }: { value: number; label: string }) {
-  return (
-    <div className="flex items-center gap-0.5 text-[#FBBF24] lg:gap-1" role="img" aria-label={label}>
-      {Array.from({ length: 5 }, (_, index) => <Star key={index} className={`size-[1em] ${index < Math.round(value) ? "fill-current" : "fill-transparent"}`} strokeWidth={1.8} />)}
-    </div>
-  );
-}
-
-export default async function ProfilePage({ searchParams }: { searchParams: Promise<{ artista?: string; avaliacaoDemo?: string }> }) {
-  const { artista, avaliacaoDemo } = await searchParams;
+export default async function ProfilePage({ searchParams }: { searchParams: Promise<{ artista?: string }> }) {
+  const { artista } = await searchParams;
   const configured = isSupabaseConfigured();
   const { profile, reviews, isPublicView } = await getProfileData(artista);
   const bookingDays = BOOKING_WEEKDAYS.filter((day) => profile.booking_weekdays.includes(day.value));
@@ -180,7 +170,6 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
       </header>
 
       <main className="mx-auto max-w-[400px] space-y-6 px-5 pb-32 pt-[calc(env(safe-area-inset-top)+100px)] lg:max-w-[1200px] lg:space-y-8 lg:px-6 lg:pb-20 lg:pt-32">
-        {isPublicView && artista && avaliacaoDemo === "1" && <DemoReviewNotice artistId={artista} />}
         <Card className="relative overflow-hidden lg:rounded-3xl">
           <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-r from-[#6C1EE7]/30 via-[#BA3BE7]/15 to-transparent lg:h-40" />
           <div className="relative flex flex-col items-center px-5 pb-6 pt-10 text-center lg:px-10 lg:pb-8 lg:pt-12">
@@ -197,7 +186,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
               <div className="inline-flex h-12 items-center gap-2 rounded-xl bg-[#FBBF24] px-3.5 font-bold text-[#1A1A1A] shadow-lg shadow-[#FBBF24]/15" aria-label={`Nível ${profile.level}`}>
                 <Star className="size-6" strokeWidth={1.8} /><span className="text-lg">{String(profile.level).padStart(2, "0")}</span>
               </div>
-              <div className="text-[21px] lg:text-[27px]">{profile.review_count > 0 ? <Rating value={profile.rating} label={`Avaliação ${profile.rating.toLocaleString("pt-BR")} de 5 estrelas`} /> : <span className="text-base font-semibold text-white/55" aria-label="Sem avaliações">--</span>}</div>
+              <div className="text-[21px] lg:text-[27px]"><ProfileRatingSummary artistId={profile.id} rating={profile.rating} count={profile.review_count} /></div>
             </div>
           </div>
         </Card>
@@ -240,27 +229,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
           </Card>
         </div>
 
-        <Card className="bg-[#222226] p-6 lg:p-8">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <SectionTitle>Avaliações:</SectionTitle>
-            {profile.review_count > 0 ? <span className="text-sm font-medium text-[#FBBF24]">★ {profile.rating.toLocaleString("pt-BR", { minimumFractionDigits: 1 })} <span className="text-white/45">({profile.review_count} avaliações)</span></span> : <span className="text-sm font-medium text-white/55" aria-label="Sem avaliações">--</span>}
-          </div>
-          <div className="mt-6 grid gap-4 lg:grid-cols-2">
-            {reviews.length === 0 && <p className="text-sm text-white/50">Ainda não há avaliações.</p>}
-            {reviews.map((review) => (
-              <article key={review.id} className="rounded-xl border border-white/10 bg-[#1A1A1A] p-4 lg:p-5">
-                <div className="flex items-start gap-3">
-                  <Image src={review.author_avatar_url || demoReviews[0].author_avatar_url} alt={`Foto de ${review.author_name}`} width={44} height={44} className="size-11 shrink-0 rounded-full object-cover" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-white">{review.body}</p>
-                    <p className="mt-1 text-xs text-white/45">{review.author_name}</p>
-                    <div className="mt-2 text-sm"><Rating value={review.rating} label={`${review.rating} de 5 estrelas`} /></div>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-        </Card>
+        <ProfileReviews artistId={profile.id} baseRating={profile.rating} baseCount={profile.review_count} reviews={reviews} />
       </main>
       <MobileNav />
     </div>
