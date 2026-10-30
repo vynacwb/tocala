@@ -9,7 +9,7 @@ import { useToast } from "@/components/providers/app-providers";
 import { dateKey } from "@/lib/availability";
 
 type Artist = { id: string; name: string; genre: string; imageUrl: string };
-type Stage = "details" | "contract" | "sent" | "artist" | "adjustment" | "checkin" | "review";
+type Stage = "details" | "contract" | "sent" | "artist" | "adjustment" | "escrow" | "checkin" | "review";
 type Draft = {
   eventTitle: string; eventDate: string; startTime: string; endTime: string; venueName: string; venueAddress: string; venueType: string;
   performanceMinutes: string; arrivalMinutes: string; fee: string; transportationByArtist: boolean; mealProvided: boolean;
@@ -17,7 +17,7 @@ type Draft = {
   venueConfirmed: boolean; extraTerms: string;
 };
 
-const steps = ["Proposta", "Aceite", "Artista", "Check-in", "Avaliação"];
+const steps = ["Proposta", "Aceite", "Artista", "Pagamento", "Check-in", "Avaliação"];
 const inputClass = "h-12 w-full rounded-xl border border-white/10 bg-[#101010]/70 px-3.5 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20";
 
 function initialDraft(): Draft {
@@ -32,6 +32,130 @@ function formatEventDate(value: string) {
   if (!value) return "A definir";
   const [year, month, day] = value.split("-").map(Number);
   return new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "long", year: "numeric" }).format(new Date(year, month - 1, day));
+}
+
+function followingDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(year, month - 1, day + 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function toBrazilianDate(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : "";
+}
+
+function fromBrazilianDate(value: string) {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value);
+  if (!match) return "";
+  const [, day, month, year] = match;
+  const date = new Date(Number(year), Number(month) - 1, Number(day));
+  if (date.getFullYear() !== Number(year) || date.getMonth() !== Number(month) - 1 || date.getDate() !== Number(day)) return "";
+  return `${year}-${month}-${day}`;
+}
+
+function DateField({ value, onChange, min }: { value: string; onChange: (value: string) => void; min: string }) {
+  const [mode, setMode] = useState<"calendar" | "typing">("calendar");
+  const [typedDate, setTypedDate] = useState(() => toBrazilianDate(value));
+
+  function updateTypedDate(rawValue: string) {
+    const digits = rawValue.replace(/\D/g, "").slice(0, 8);
+    const formatted = digits.length <= 2 ? digits : digits.length <= 4 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+    setTypedDate(formatted);
+    onChange(fromBrazilianDate(formatted));
+  }
+
+  return <div>
+    <span className="mb-2 block text-sm font-medium text-white/80">Dia do evento</span>
+    {mode === "calendar" ? <input type="date" required min={min} value={value} onChange={(event) => onChange(event.target.value)} aria-label="Dia do evento" className={inputClass} /> : <input type="text" required inputMode="numeric" autoComplete="off" maxLength={10} pattern="[0-9]{2}/[0-9]{2}/[0-9]{4}" placeholder="DD/MM/AAAA" value={typedDate} onChange={(event) => updateTypedDate(event.target.value)} aria-label="Dia do evento no formato dia, mês e ano" className={inputClass} />}
+    {mode === "typing" && <p className="mt-1.5 text-xs text-white/40">Digite a data como dia/mês/ano.</p>}
+    <div className="mt-2 flex gap-2">
+      <button type="button" onClick={() => setMode("calendar")} aria-pressed={mode === "calendar"} className={`rounded-lg px-3 py-2 text-xs font-medium transition ${mode === "calendar" ? "bg-[#6C1EE7]/25 text-[#E4C9FF]" : "text-white/55 hover:bg-white/5"}`}><CalendarDays className="mr-1.5 inline size-3.5" />Calendário</button>
+      <button type="button" onClick={() => { setTypedDate(toBrazilianDate(value)); setMode("typing"); }} aria-pressed={mode === "typing"} className={`rounded-lg px-3 py-2 text-xs font-medium transition ${mode === "typing" ? "bg-[#6C1EE7]/25 text-[#E4C9FF]" : "text-white/55 hover:bg-white/5"}`}>Digitar data</button>
+    </div>
+  </div>;
+}
+
+function TimeField({ label, value, onChange, required = false }: { label: string; value: string; onChange: (value: string) => void; required?: boolean }) {
+  const [mode, setMode] = useState<"clock" | "typing">("clock");
+  const [clockOpen, setClockOpen] = useState(false);
+  const [selecting, setSelecting] = useState<"hour" | "minute">("hour");
+  const [typedTime, setTypedTime] = useState(value);
+  const [selectedHour, setSelectedHour] = useState(value ? Number(value.slice(0, 2)) : 19);
+  const [selectedMinute, setSelectedMinute] = useState(value ? Number(value.slice(3, 5)) : 0);
+
+  function updateTypedTime(rawValue: string) {
+    const digits = rawValue.replace(/\D/g, "").slice(0, 4);
+    const formatted = digits.length <= 2 ? digits : `${digits.slice(0, 2)}:${digits.slice(2)}`;
+    setTypedTime(formatted);
+    if (digits.length === 4) {
+      const hour = Number(digits.slice(0, 2));
+      const minute = Number(digits.slice(2));
+      onChange(hour < 24 && minute < 60 ? `${digits.slice(0, 2)}:${digits.slice(2)}` : "");
+    } else onChange("");
+  }
+
+  function completeTypedHour() {
+    const digits = typedTime.replace(/\D/g, "");
+    if (digits.length > 0 && digits.length <= 2 && Number(digits) < 24) {
+      const completed = `${digits.padStart(2, "0")}:00`;
+      setTypedTime(completed);
+      onChange(completed);
+    }
+  }
+
+  function chooseHour(hour: number) {
+    setSelectedHour(hour);
+    setSelecting("minute");
+  }
+
+  function chooseMinute(minute: number) {
+    const formatted = `${String(selectedHour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+    setSelectedMinute(minute);
+    setTypedTime(formatted);
+    onChange(formatted);
+    setClockOpen(false);
+    setSelecting("hour");
+  }
+
+  function openClock() {
+    if (value) {
+      setSelectedHour(Number(value.slice(0, 2)));
+      setSelectedMinute(Number(value.slice(3, 5)));
+    }
+    setMode("clock");
+    setClockOpen((open) => !open);
+    setSelecting("hour");
+  }
+
+  const dialPosition = (index: number, radius: number) => {
+    const angle = (index * 30 - 90) * (Math.PI / 180);
+    return { left: `calc(50% + ${Math.round(Math.cos(angle) * radius)}px)`, top: `calc(50% + ${Math.round(Math.sin(angle) * radius)}px)` };
+  };
+
+  return <div>
+    <span className="mb-2 block text-sm font-medium text-white/80">{label}</span>
+    <div className="flex gap-2">
+      <input type="text" readOnly={mode === "clock"} required={required} pattern={mode === "typing" ? "(?:[01][0-9]|2[0-3]):[0-5][0-9]" : undefined} value={mode === "clock" ? value : typedTime} onChange={(event) => updateTypedTime(event.target.value)} onBlur={mode === "typing" ? completeTypedHour : undefined} placeholder="HH:MM" inputMode={mode === "typing" ? "numeric" : undefined} aria-label={label} className={`${inputClass} min-w-0`} />
+      <button type="button" onClick={openClock} aria-label="Escolher horário no relógio" aria-expanded={clockOpen} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-[#101010]/70 text-white/70 transition hover:border-[#BA3BE7] hover:text-white"><Clock3 className="size-5" /></button>
+    </div>
+    <div className="mt-2 flex gap-2">
+      <button type="button" onClick={() => { if (value) { setSelectedHour(Number(value.slice(0, 2))); setSelectedMinute(Number(value.slice(3, 5))); } setMode("clock"); setClockOpen(true); setSelecting("hour"); }} aria-pressed={mode === "clock"} className={`rounded-lg px-3 py-2 text-xs font-medium transition ${mode === "clock" ? "bg-[#6C1EE7]/25 text-[#E4C9FF]" : "text-white/55 hover:bg-white/5"}`}><Clock3 className="mr-1.5 inline size-3.5" />Relógio</button>
+      <button type="button" onClick={() => { setMode("typing"); setClockOpen(false); setTypedTime(value); }} aria-pressed={mode === "typing"} className={`rounded-lg px-3 py-2 text-xs font-medium transition ${mode === "typing" ? "bg-[#6C1EE7]/25 text-[#E4C9FF]" : "text-white/55 hover:bg-white/5"}`}>Digitar horário</button>
+      {mode === "typing" && <span className="self-center text-xs text-white/40">Digite 19 para completar 19:00.</span>}
+    </div>
+    {clockOpen && mode === "clock" && <div className="relative z-20 mt-2 w-full max-w-[320px] rounded-2xl border border-white/10 bg-[#1A1A1D] p-4 shadow-2xl">
+      <div className="mb-3 flex items-center justify-between">
+        <div><p className="text-xs text-white/50">Escolha {selecting === "hour" ? "a hora" : "os minutos"}</p><p className="text-lg font-semibold tabular-nums">{String(selectedHour).padStart(2, "0")}:{String(selectedMinute).padStart(2, "0")}</p></div>
+        <button type="button" onClick={() => setClockOpen(false)} className="rounded-lg px-3 py-2 text-xs text-white/60 hover:bg-white/5">Fechar</button>
+      </div>
+      <div className="relative mx-auto size-[248px] rounded-full bg-[#29292D]">
+        {selecting === "hour" ? <>{Array.from({ length: 12 }, (_, index) => <button key={`outer-${index}`} type="button" onClick={() => chooseHour(index)} style={dialPosition(index, 98)} className={`absolute flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-xs transition ${selectedHour === index ? "bg-[#6C1EE7] text-white" : "text-white/80 hover:bg-white/10"}`}>{String(index).padStart(2, "0")}</button>)}{Array.from({ length: 12 }, (_, index) => { const hour = index + 12; return <button key={`inner-${hour}`} type="button" onClick={() => chooseHour(hour)} style={dialPosition(index, 58)} className={`absolute flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-xs transition ${selectedHour === hour ? "bg-[#6C1EE7] text-white" : "text-white/65 hover:bg-white/10"}`}>{hour}</button>; })}</> : Array.from({ length: 12 }, (_, index) => { const minute = index * 5; return <button key={`minute-${minute}`} type="button" onClick={() => chooseMinute(minute)} style={dialPosition(index, 98)} className={`absolute flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-xs transition ${selectedMinute === minute ? "bg-[#6C1EE7] text-white" : "text-white/80 hover:bg-white/10"}`}>{String(minute).padStart(2, "0")}</button>; })}
+        <span className="absolute left-1/2 top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#BA3BE7]" />
+      </div>
+      {selecting === "minute" && <button type="button" onClick={() => setSelecting("hour")} className="mt-3 w-full rounded-lg py-2 text-xs text-[#D6A0FF] hover:bg-white/5">Voltar para as horas</button>}
+    </div>}
+  </div>;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -51,6 +175,7 @@ export function ContractDemoFlow({ artist }: { artist: Artist }) {
   const [draft, setDraft] = useState<Draft>(initialDraft);
   const [buyerAccepted, setBuyerAccepted] = useState(false);
   const [artistAccepted, setArtistAccepted] = useState(false);
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const [changeRequest, setChangeRequest] = useState("");
   const [checkinConfirmed, setCheckinConfirmed] = useState(false);
   const [reviewRating, setReviewRating] = useState(5);
@@ -58,7 +183,7 @@ export function ContractDemoFlow({ artist }: { artist: Artist }) {
   const { toast } = useToast();
   const router = useRouter();
 
-  const stageIndex = stage === "details" ? 0 : stage === "contract" ? 1 : stage === "sent" || stage === "artist" || stage === "adjustment" ? 2 : stage === "checkin" ? 3 : 4;
+  const stageIndex = stage === "details" ? 0 : stage === "contract" ? 1 : stage === "sent" || stage === "artist" || stage === "adjustment" ? 2 : stage === "escrow" ? 3 : stage === "checkin" ? 4 : 5;
 
   function update<K extends keyof Draft>(key: K, value: Draft[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -66,12 +191,25 @@ export function ContractDemoFlow({ artist }: { artist: Artist }) {
 
   function submitDetails(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!draft.dateConfirmed || !draft.timeConfirmed || !draft.venueConfirmed) {
-      toast("Confirme a data, o horário e o local para continuar.", "error");
+    if (!draft.eventDate || draft.eventDate < dateKey(new Date())) {
+      toast("Escolha uma data válida para o evento.", "error");
       return;
     }
-    if (draft.endTime && draft.endTime <= draft.startTime) {
-      toast("O horário de término precisa ser depois do início.", "error");
+    if (!draft.startTime) {
+      toast("Escolha o horário de início no relógio ou digite a hora.", "error");
+      return;
+    }
+    const pendingConfirmations = [
+      !draft.dateConfirmed && "data",
+      !draft.timeConfirmed && "horário",
+      !draft.venueConfirmed && "local",
+    ].filter(Boolean);
+    if (pendingConfirmations.length) {
+      toast(`No checklist ao final, confirme: ${pendingConfirmations.join(", ")}.`, "error");
+      return;
+    }
+    if (draft.endTime && draft.endTime === draft.startTime) {
+      toast("Os horários de início e término precisam ser diferentes. Para terminar após meia-noite, informe um horário menor que o início.", "error");
       return;
     }
     setStage("contract");
@@ -91,13 +229,14 @@ export function ContractDemoFlow({ artist }: { artist: Artist }) {
   const canGoBack = stage !== "details";
   function goBack() {
     const previous: Record<Exclude<Stage, "details">, Stage> = {
-      contract: "details", sent: "contract", artist: "sent", adjustment: "artist", checkin: "artist", review: "checkin",
+      contract: "details", sent: "contract", artist: "sent", adjustment: "artist", escrow: "artist", checkin: "escrow", review: "checkin",
     };
     if (canGoBack) setStage(previous[stage as Exclude<Stage, "details">]);
     else router.back();
   }
 
   function summary() {
+    const finishesNextDay = Boolean(draft.endTime && draft.startTime && draft.endTime < draft.startTime);
     return <div className="space-y-3 rounded-2xl border border-white/10 bg-[#151517] p-4 sm:p-5">
       <div className="flex items-center gap-3 border-b border-white/10 pb-3">
         <Image src={artist.imageUrl} alt="" width={48} height={48} unoptimized className="size-12 rounded-xl object-cover" />
@@ -105,11 +244,11 @@ export function ContractDemoFlow({ artist }: { artist: Artist }) {
       </div>
       <h3 className="font-semibold">{draft.eventTitle || "Apresentação musical"}</h3>
       <p className="flex items-start gap-2 text-sm text-white/65"><CalendarDays className="mt-0.5 size-4 shrink-0 text-[#D6A0FF]" />{formatEventDate(draft.eventDate)}</p>
-      <p className="flex items-start gap-2 text-sm text-white/65"><Clock3 className="mt-0.5 size-4 shrink-0 text-[#D6A0FF]" />{draft.startTime || "Horário a definir"}{draft.endTime ? `–${draft.endTime}` : ""} · {draft.performanceMinutes} min</p>
+      <p className="flex items-start gap-2 text-sm text-white/65"><Clock3 className="mt-0.5 size-4 shrink-0 text-[#D6A0FF]" />Início {draft.startTime || "a definir"}{draft.endTime ? ` · término ${draft.endTime}${finishesNextDay ? ` (${formatEventDate(followingDate(draft.eventDate))}, dia seguinte)` : ""}` : ""} · {draft.performanceMinutes} min</p>
       <p className="flex items-start gap-2 text-sm text-white/65"><MapPin className="mt-0.5 size-4 shrink-0 text-[#D6A0FF]" />{draft.venueName || "Local a definir"}{draft.venueAddress ? ` · ${draft.venueAddress}` : ""}</p>
       <div className="grid grid-cols-2 gap-2 pt-1 text-xs text-white/55">
         <span>Chegada: {draft.arrivalMinutes} min antes</span><span>Tipo: {draft.venueType}</span>
-        {draft.fee && <span>Valor proposto: R$ {Number(draft.fee).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>}
+        <span className="font-medium text-white/75">Valor proposto: {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(draft.fee))}</span>
       </div>
       <ul className="space-y-1 border-t border-white/10 pt-3 text-xs text-white/55">
         <li>Locomoção por conta do artista: {draft.transportationByArtist ? "Sim" : "Não"}</li>
@@ -131,7 +270,7 @@ export function ContractDemoFlow({ artist }: { artist: Artist }) {
       </div>
     </header>
     <main className="mx-auto max-w-[760px] px-4 pb-14 pt-6 sm:px-6 sm:pt-9">
-      <ol className="mb-6 grid grid-cols-5 gap-1" aria-label="Etapas da contratação fictícia">
+      <ol className="mb-6 grid grid-cols-6 gap-1" aria-label="Etapas da contratação fictícia">
         {steps.map((label, index) => <li key={label} className={`border-b-2 pb-2 text-center text-[9px] font-medium sm:text-[11px] ${index <= stageIndex ? "border-[#BA3BE7] text-[#E4C9FF]" : "border-white/10 text-white/35"}`}>{label}</li>)}
       </ol>
       <div className="mb-5 rounded-xl border border-amber-300/20 bg-amber-300/[0.07] p-3.5 text-xs leading-relaxed text-amber-50/80">
@@ -145,15 +284,15 @@ export function ContractDemoFlow({ artist }: { artist: Artist }) {
         <form onSubmit={submitDetails} className="mt-6 space-y-6">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2"><Field label="Nome ou tipo do evento"><input required value={draft.eventTitle} onChange={(event) => update("eventTitle", event.target.value)} maxLength={100} placeholder="Ex.: Festa de aniversário da empresa" className={inputClass} /></Field></div>
-            <Field label="Dia do evento"><input type="date" required min={dateKey(new Date())} value={draft.eventDate} onChange={(event) => update("eventDate", event.target.value)} className={inputClass} /></Field>
+            <DateField value={draft.eventDate} onChange={(value) => update("eventDate", value)} min={dateKey(new Date())} />
             <Field label="Tipo de local"><select value={draft.venueType} onChange={(event) => update("venueType", event.target.value)} className={inputClass}><option>Espaço de eventos</option><option>Bar ou restaurante</option><option>Evento corporativo</option><option>Festa particular</option><option>Festival</option><option>Outro</option></select></Field>
-            <Field label="Horário de início"><input type="time" required value={draft.startTime} onChange={(event) => update("startTime", event.target.value)} className={inputClass} /></Field>
-            <Field label="Horário de término (opcional)"><input type="time" value={draft.endTime} onChange={(event) => update("endTime", event.target.value)} className={inputClass} /></Field>
+            <TimeField label="Horário de início" required value={draft.startTime} onChange={(value) => update("startTime", value)} />
+            <div><TimeField label="Horário de término (opcional)" value={draft.endTime} onChange={(value) => update("endTime", value)} /><p className="mt-1.5 text-xs text-white/40">Se for antes do início, o término será no dia seguinte.</p></div>
             <Field label="Duração da apresentação (min)"><input type="number" min="15" max="600" required value={draft.performanceMinutes} onChange={(event) => update("performanceMinutes", event.target.value)} className={inputClass} /></Field>
             <Field label="Chegar quantos minutos antes?"><input type="number" min="0" max="720" required value={draft.arrivalMinutes} onChange={(event) => update("arrivalMinutes", event.target.value)} className={inputClass} /></Field>
             <div className="sm:col-span-2"><Field label="Nome do local"><input required value={draft.venueName} onChange={(event) => update("venueName", event.target.value)} maxLength={120} placeholder="Nome da casa ou do espaço" className={inputClass} /></Field></div>
             <div className="sm:col-span-2"><Field label="Endereço completo"><input required value={draft.venueAddress} onChange={(event) => update("venueAddress", event.target.value)} maxLength={240} placeholder="Rua, número, cidade e estado" className={inputClass} /></Field></div>
-            <Field label="Valor proposto (R$, opcional)"><input type="number" min="0" step="0.01" value={draft.fee} onChange={(event) => update("fee", event.target.value)} placeholder="0,00" className={inputClass} /></Field>
+            <Field label="Valor proposto"><span className="flex h-12 w-full items-center overflow-hidden rounded-xl border border-white/10 bg-[#101010]/70 transition focus-within:border-[#BA3BE7] focus-within:ring-2 focus-within:ring-[#BA3BE7]/20"><span className="pl-3.5 text-sm text-white/55">R$</span><input type="number" required min="0.01" step="0.01" value={draft.fee} onChange={(event) => update("fee", event.target.value)} placeholder="0,00" aria-label="Valor proposto em reais" className="h-full min-w-0 flex-1 bg-transparent px-2.5 text-sm text-white outline-none placeholder:text-white/30" /></span></Field>
           </div>
           <div>
             <h2 className="mb-3 text-sm font-semibold text-white/85">Estrutura e logística</h2>
@@ -166,7 +305,8 @@ export function ContractDemoFlow({ artist }: { artist: Artist }) {
             </div>
           </div>
           <div>
-            <h2 className="mb-3 text-sm font-semibold text-white/85">Confirmações da proposta</h2>
+            <h2 className="mb-1 text-sm font-semibold text-white/85">Confirmações da proposta</h2>
+            <p className="mb-3 text-xs text-white/50">Marque os três itens depois de revisar a data, os horários e o endereço.</p>
             <div className="grid gap-2 sm:grid-cols-3">
               <CheckOption checked={draft.dateConfirmed} onChange={(value) => update("dateConfirmed", value)}>Data confirmada</CheckOption>
               <CheckOption checked={draft.timeConfirmed} onChange={(value) => update("timeConfirmed", value)}>Horário confirmado</CheckOption>
@@ -209,7 +349,7 @@ export function ContractDemoFlow({ artist }: { artist: Artist }) {
         <p className="mt-2 text-sm text-white/55">Simule o outro lado do fluxo: aceitar as condições ou pedir um ajuste.</p>
         <div className="mt-5">{summary()}</div>
         <div className="mt-4"><CheckOption checked={artistAccepted} onChange={setArtistAccepted}>Confirmo, como artista, que aceito os detalhes desta proposta fictícia.</CheckOption></div>
-        <button type="button" disabled={!artistAccepted} onClick={() => setStage("checkin")} className="mt-3 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#6C1EE7] px-5 text-sm font-semibold text-white transition hover:bg-[#BA3BE7] disabled:cursor-not-allowed disabled:opacity-45">Aceitar contrato fictício <Check className="size-4" /></button>
+        <button type="button" disabled={!artistAccepted} onClick={() => setStage("escrow")} className="mt-3 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#6C1EE7] px-5 text-sm font-semibold text-white transition hover:bg-[#BA3BE7] disabled:cursor-not-allowed disabled:opacity-45">Aceitar contrato fictício <Check className="size-4" /></button>
         <div className="my-5 border-t border-white/10" />
         <Field label="Ou descreva um ajuste para a proposta"><textarea value={changeRequest} onChange={(event) => setChangeRequest(event.target.value)} maxLength={800} rows={3} placeholder="Ex.: preciso alterar o horário de chegada para 90 minutos antes" className="w-full resize-y rounded-xl border border-white/10 bg-[#101010]/70 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20" /></Field>
         <button type="button" disabled={!changeRequest.trim()} onClick={() => setStage("adjustment")} className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-xl border border-white/15 text-sm font-semibold text-white/80 transition hover:border-[#BA3BE7] hover:text-white disabled:cursor-not-allowed disabled:opacity-40">Solicitar ajuste</button>
@@ -221,12 +361,22 @@ export function ContractDemoFlow({ artist }: { artist: Artist }) {
         <p className="mt-2 text-sm text-white/55">Em um fluxo real, o contratante poderia responder ou negociar novamente.</p>
         <blockquote className="mt-5 rounded-xl border-l-2 border-[#BA3BE7] bg-[#101010]/50 p-4 text-sm leading-relaxed text-white/75">“{changeRequest}”</blockquote>
         <div className="mt-5">{summary()}</div>
-        <button type="button" onClick={() => { update("extraTerms", [draft.extraTerms, `Ajuste simulado aceito: ${changeRequest}`].filter(Boolean).join("\n")); setArtistAccepted(true); setStage("checkin"); }} className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#6C1EE7] px-5 text-sm font-semibold text-white transition hover:bg-[#BA3BE7]">Simular aceite do ajuste <Check className="size-4" /></button>
+        <button type="button" onClick={() => { update("extraTerms", [draft.extraTerms, `Ajuste simulado aceito: ${changeRequest}`].filter(Boolean).join("\n")); setArtistAccepted(true); setStage("escrow"); }} className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#6C1EE7] px-5 text-sm font-semibold text-white transition hover:bg-[#BA3BE7]">Simular aceite do ajuste <Check className="size-4" /></button>
         <button type="button" onClick={() => setStage("details")} className="mt-2 h-11 w-full rounded-xl border border-white/15 text-sm text-white/70 transition hover:bg-white/5">Voltar e alterar proposta</button>
       </section>}
 
+      {stage === "escrow" && <section className="rounded-2xl border border-white/10 bg-[#222226] p-5 sm:p-7">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#D6A0FF]">Etapa 4 · Pagamento protegido</p>
+        <h1 className="mt-2 text-2xl font-bold">Pagamento via Fluxo escrow</h1>
+        <p className="mt-2 text-sm leading-relaxed text-white/55">Depois do aceite do artista, o contratante faria o pagamento ao sistema antes do evento. Futuramente, o Fluxo escrow poderá manter o valor protegido até a conclusão do show.</p>
+        <div className="mt-5">{summary()}</div>
+        <div className="mt-4 rounded-xl border border-amber-300/20 bg-amber-300/[0.07] p-4 text-sm leading-relaxed text-amber-50/80"><strong>Pagamento fictício.</strong> Nenhuma cobrança será feita e nenhum valor será transferido ou retido nesta demonstração.</div>
+        <div className="mt-4"><CheckOption checked={paymentConfirmed} onChange={setPaymentConfirmed}>Confirmo o pagamento simulado de {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(draft.fee))} para continuar.</CheckOption></div>
+        <button type="button" disabled={!paymentConfirmed} onClick={() => setStage("checkin")} className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#6C1EE7] px-5 text-sm font-semibold text-white transition hover:bg-[#BA3BE7] disabled:cursor-not-allowed disabled:opacity-45">Simular pagamento protegido <ArrowRight className="size-4" /></button>
+      </section>}
+
       {stage === "checkin" && <section className="rounded-2xl border border-white/10 bg-[#222226] p-5 sm:p-7">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#D6A0FF]">Etapa 4 · Dia do evento</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#D6A0FF]">Etapa 5 · Dia do evento</p>
         <h1 className="mt-2 text-2xl font-bold">Check-in no show</h1>
         <p className="mt-2 text-sm leading-relaxed text-white/55">Esta tela é apenas demonstrativa. Em uma versão futura, poderia confirmar a chegada do artista no local.</p>
         <div className="mt-5">{summary()}</div>
@@ -235,7 +385,7 @@ export function ContractDemoFlow({ artist }: { artist: Artist }) {
       </section>}
 
       {stage === "review" && <section className="rounded-2xl border border-white/10 bg-[#222226] p-5 sm:p-7">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#D6A0FF]">Etapa 5 · Avaliação</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#D6A0FF]">Etapa 6 · Avaliação</p>
         <h1 className="mt-2 text-2xl font-bold">Como foi o show de {artist.name}?</h1>
         <p className="mt-2 text-sm text-white/55">A avaliação ficará visível apenas nesta simulação, neste navegador.</p>
         <div className="mt-6 flex items-center justify-center gap-2" role="radiogroup" aria-label="Nota de 1 a 5 estrelas">
