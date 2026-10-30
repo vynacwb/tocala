@@ -6,8 +6,13 @@ export type CareerExperience = {
 };
 
 export type ProfileSettingsData = {
+  realName: string;
   fullName: string;
   username: string;
+  contactEmail: string;
+  contactPhone: string;
+  city: string;
+  state: string;
   genre: string;
   bio: string;
   avatarUrl: string;

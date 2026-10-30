@@ -23,7 +23,8 @@ export async function updateSession(request: NextRequest) {
   );
 
   const { data: { user } } = await supabase.auth.getUser();
-  const isProtectedRoute = request.nextUrl.pathname.startsWith("/perfil");
+  const isPublicProfile = request.nextUrl.pathname === "/perfil" && request.nextUrl.searchParams.has("artista");
+  const isProtectedRoute = request.nextUrl.pathname.startsWith("/perfil") && !isPublicProfile;
   const isAuthRoute = request.nextUrl.pathname.startsWith("/login");
 
   if (isProtectedRoute && !user) {
@@ -35,7 +36,7 @@ export async function updateSession(request: NextRequest) {
 
   if (isAuthRoute && user) {
     const url = request.nextUrl.clone();
-    url.pathname = "/perfil";
+    url.pathname = "/perfil/configuracoes";
     url.search = "";
     return NextResponse.redirect(url);
   }

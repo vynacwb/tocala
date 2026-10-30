@@ -30,14 +30,23 @@ export async function saveProfileSettings(
 
   if (!user) return errorState("Sua sessão expirou. Entre novamente para salvar o perfil.");
 
-  const fullName = String(formData.get("fullName") ?? "").trim();
+  const realName = String(formData.get("realName") ?? "").trim();
+  const stageName = String(formData.get("fullName") ?? "").trim();
   const username = String(formData.get("username") ?? "").trim().replace(/^@/, "").toLowerCase();
+  const contactEmail = String(formData.get("contactEmail") ?? "").trim().toLowerCase();
+  const contactPhone = String(formData.get("contactPhone") ?? "").trim();
+  const city = String(formData.get("city") ?? "").trim();
+  const state = String(formData.get("state") ?? "").trim().toUpperCase();
   const genre = String(formData.get("genre") ?? "").trim();
   const bio = String(formData.get("bio") ?? "").trim();
   const avatarUrl = String(formData.get("avatarUrl") ?? "").trim();
 
-  if (fullName.length < 2 || fullName.length > 80) return errorState("Informe um nome entre 2 e 80 caracteres.");
+  if (realName.length < 2 || realName.length > 100) return errorState("Informe seu nome verdadeiro entre 2 e 100 caracteres.");
+  if (stageName.length > 80 || (stageName.length > 0 && stageName.length < 2)) return errorState("O nome artístico deve ter pelo menos 2 caracteres ou ficar em branco.");
   if (!/^[a-z0-9._-]{3,30}$/.test(username)) return errorState("O usuário deve ter de 3 a 30 caracteres: letras, números, ponto, hífen ou underline.");
+  if (contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) return errorState("Informe um e-mail de contato válido.");
+  if (contactPhone.length > 30 || (contactPhone && contactPhone.replace(/\D/g, "").length < 8)) return errorState("Informe um WhatsApp válido com pelo menos 8 dígitos.");
+  if (city.length > 100 || (state && !/^[A-Z]{2}$/.test(state)) || (Boolean(city) !== Boolean(state))) return errorState("Preencha cidade e sigla do estado juntos (por exemplo, São Paulo e SP).");
   if (!genre || genre.length > 60) return errorState("Selecione um estilo musical válido.");
   if (bio.length > 20000) return errorState("O texto sobre o artista ultrapassou 20.000 caracteres.");
   if (!isWebUrl(avatarUrl)) return errorState("Informe uma URL válida para a foto de perfil.");
@@ -74,7 +83,21 @@ export async function saveProfileSettings(
 
   const { error: profileError } = await supabase
     .from("profiles")
-    .update({ full_name: fullName, username, genre, bio, career, avatar_url: avatarUrl })
+    .update({
+      real_name: realName,
+      stage_name: stageName,
+      full_name: stageName || realName,
+      username,
+      contact_email: contactEmail,
+      contact_phone: contactPhone,
+      city,
+      state,
+      profile_visible: true,
+      genre,
+      bio,
+      career,
+      avatar_url: avatarUrl,
+    })
     .eq("id", user.id);
 
   if (profileError) {
@@ -86,7 +109,7 @@ export async function saveProfileSettings(
     const { error: musicianError } = await supabase.from("musician_profiles").upsert(
       {
         user_id: user.id,
-        stage_name: fullName,
+        stage_name: stageName || realName,
         bio_description: bio,
         musical_genres: [genre],
         portfolio_links: portfolioLinks,
@@ -99,5 +122,6 @@ export async function saveProfileSettings(
 
   revalidatePath("/perfil");
   revalidatePath("/perfil/configuracoes");
-  return { status: "success", message: "Perfil atualizado com sucesso.", submissionId: Date.now() };
+  revalidatePath("/");
+  return { status: "success", message: "Perfil salvo e publicado nas buscas.", submissionId: Date.now() };
 }

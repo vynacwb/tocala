@@ -1,13 +1,14 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState, type ChangeEvent } from "react";
 import Link from "next/link";
-import { Camera, ChevronDown, ImagePlus, LoaderCircle, Plus, Save, Sparkles, Trash2, UserRound } from "lucide-react";
+import { Camera, ChevronDown, ImagePlus, LoaderCircle, Mail, MapPin, Phone, Plus, Save, Sparkles, Trash2, UserRound } from "lucide-react";
 import { saveProfileSettings } from "@/app/perfil/configuracoes/actions";
 import { useToast } from "@/components/providers/app-providers";
 import { Button } from "@/components/ui/button";
 import type { CareerExperience, ProfileSettingsActionState, ProfileSettingsData } from "@/lib/profile-settings";
+import { createClient } from "@/utils/supabase/client";
 
 const initialActionState: ProfileSettingsActionState = { status: "idle", message: "", submissionId: 0 };
 const genres = ["MPB", "Rock", "Pop", "Sertanejo", "Jazz", "Blues", "Samba", "Pagode", "Eletrônica", "Hip-hop", "Soul", "Forró", "Outro"];
@@ -51,11 +52,17 @@ function PhotoUrlField({ value, onChange, label }: { value: string; onChange: (v
 
 export function ProfileSettingsForm({ initialData, configured }: { initialData: ProfileSettingsData; configured: boolean }) {
   const [state, formAction, pending] = useActionState(saveProfileSettings, initialActionState);
+  const [realName, setRealName] = useState(initialData.realName);
   const [fullName, setFullName] = useState(initialData.fullName);
   const [username, setUsername] = useState(initialData.username);
+  const [contactEmail, setContactEmail] = useState(initialData.contactEmail);
+  const [contactPhone, setContactPhone] = useState(initialData.contactPhone);
+  const [city, setCity] = useState(initialData.city);
+  const [stateCode, setStateCode] = useState(initialData.state);
   const [genre, setGenre] = useState(initialData.genre);
   const [bio, setBio] = useState(initialData.bio);
   const [avatarUrl, setAvatarUrl] = useState(initialData.avatarUrl);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [experiences, setExperiences] = useState<CareerExperience[]>(initialData.experiences);
   const { toast } = useToast();
 
@@ -65,6 +72,39 @@ export function ProfileSettingsForm({ initialData, configured }: { initialData: 
   }, [state, toast]);
 
   const serializedExperiences = useMemo(() => JSON.stringify(experiences), [experiences]);
+
+  async function uploadAvatar(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type)) {
+      toast("Envie uma imagem JPG, PNG, WebP ou GIF.", "error");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast("A imagem deve ter no máximo 5 MB.", "error");
+      return;
+    }
+
+    setUploadingAvatar(true);
+    const supabase = createClient();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      setUploadingAvatar(false);
+      toast("Entre novamente para enviar sua foto.", "error");
+      return;
+    }
+    const extension = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+    const path = `${user.id}/${crypto.randomUUID()}.${extension}`;
+    const { error } = await supabase.storage.from("avatars").upload(path, file, { cacheControl: "3600", upsert: false, contentType: file.type });
+    setUploadingAvatar(false);
+    if (error) {
+      toast("Não foi possível enviar a foto. Verifique se o armazenamento de avatares foi configurado no Supabase.", "error");
+      return;
+    }
+    setAvatarUrl(supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl);
+    toast("Foto enviada. Salve a personalização para aplicar no perfil.");
+  }
 
   function updateExperience(id: string, changes: Partial<CareerExperience>) {
     setExperiences((current) => current.map((experience) => (experience.id === id ? { ...experience, ...changes } : experience)));
@@ -112,18 +152,28 @@ export function ProfileSettingsForm({ initialData, configured }: { initialData: 
                 <p className="mt-1 text-xs leading-relaxed text-white/45">Use uma foto nítida e bem iluminada.</p>
               </div>
             </div>
-            <label className="mt-4 block lg:mt-5">
-              <FieldLabel optional>URL da foto</FieldLabel>
-              <input name="avatarUrl" type="url" value={avatarUrl} onChange={(event) => setAvatarUrl(event.target.value)} placeholder="https://imagem..." className="h-12 w-full rounded-xl border border-white/15 bg-[#101010]/70 px-3 text-xs text-white outline-none transition placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20" />
+            <label className="mt-4 flex h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#BA3BE7]/35 bg-[#6C1EE7]/15 px-3 text-sm font-semibold text-[#D6A0FF] transition hover:bg-[#6C1EE7]/25 lg:mt-5">
+              {uploadingAvatar ? <LoaderCircle className="size-4 animate-spin" /> : <ImagePlus className="size-4" />}
+              {uploadingAvatar ? "Enviando foto..." : "Enviar arquivo"}
+              <input type="file" accept="image/*" onChange={uploadAvatar} disabled={uploadingAvatar} className="sr-only" />
             </label>
+            <details className="mt-3 rounded-xl border border-white/10 bg-[#101010]/50 p-3">
+              <summary className="cursor-pointer text-xs font-medium text-white/60">Ou use uma URL de imagem</summary>
+              <input name="avatarUrl" type="url" value={avatarUrl} onChange={(event) => setAvatarUrl(event.target.value)} placeholder="https://imagem..." aria-label="URL da foto de perfil" className="mt-3 h-11 w-full rounded-lg border border-white/15 bg-[#101010]/70 px-3 text-xs text-white outline-none transition placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20" />
+            </details>
           </div>
 
           <div className="grid content-start gap-4 sm:grid-cols-2">
             <label className="block">
-              <FieldLabel>Nome artístico</FieldLabel>
-              <input name="fullName" value={fullName} onChange={(event) => setFullName(event.target.value)} minLength={2} maxLength={80} required placeholder="Como você quer ser chamado?" className="h-14 w-full rounded-xl border border-white/15 bg-[#101010]/70 px-4 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20" />
+              <FieldLabel>Nome verdadeiro</FieldLabel>
+              <input name="realName" value={realName} onChange={(event) => setRealName(event.target.value)} minLength={2} maxLength={100} required placeholder="Seu nome completo" autoComplete="name" className="h-14 w-full rounded-xl border border-white/15 bg-[#101010]/70 px-4 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20" />
+              <span className="mt-2 block text-xs text-white/40">Será exibido no perfil se você não informar um nome artístico.</span>
             </label>
             <label className="block">
+              <FieldLabel optional>Nome artístico</FieldLabel>
+              <input name="fullName" value={fullName} onChange={(event) => setFullName(event.target.value)} minLength={2} maxLength={80} placeholder="Como você quer ser chamado?" className="h-14 w-full rounded-xl border border-white/15 bg-[#101010]/70 px-4 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20" />
+            </label>
+            <label className="block sm:col-span-2">
               <FieldLabel>Nome de usuário</FieldLabel>
               <div className="relative">
                 <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-[#D6A0FF]">@</span>
@@ -143,6 +193,41 @@ export function ProfileSettingsForm({ initialData, configured }: { initialData: 
               <p className="text-xs leading-relaxed text-white/55">Um perfil completo aumenta sua visibilidade nas buscas e ajuda contratantes a conhecerem seu trabalho.</p>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-white/10 bg-[#1A1A1A] p-5 shadow-2xl shadow-black/20 sm:p-7 lg:p-9">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[#BA3BE7]">Informações públicas</p>
+          <h2 className="mt-1 text-xl font-semibold tracking-[-0.03em] lg:text-2xl">Contato e localização</h2>
+          <p className="mt-2 text-sm text-white/50">Os contatos e a cidade serão exibidos no seu perfil público.</p>
+        </div>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <label className="block">
+            <FieldLabel optional>E-mail para contato</FieldLabel>
+            <span className="relative block">
+              <Mail className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[#D6A0FF]" />
+              <input name="contactEmail" type="email" value={contactEmail} onChange={(event) => setContactEmail(event.target.value)} maxLength={254} autoComplete="email" placeholder="contato@email.com" className="h-14 w-full rounded-xl border border-white/15 bg-[#101010]/70 pl-11 pr-4 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20" />
+            </span>
+          </label>
+          <label className="block">
+            <FieldLabel optional>WhatsApp / telefone</FieldLabel>
+            <span className="relative block">
+              <Phone className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[#D6A0FF]" />
+              <input name="contactPhone" type="tel" value={contactPhone} onChange={(event) => setContactPhone(event.target.value)} maxLength={30} autoComplete="tel" placeholder="(11) 99999-9999" className="h-14 w-full rounded-xl border border-white/15 bg-[#101010]/70 pl-11 pr-4 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20" />
+            </span>
+          </label>
+          <label className="block">
+            <FieldLabel optional>Cidade</FieldLabel>
+            <span className="relative block">
+              <MapPin className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[#D6A0FF]" />
+              <input name="city" value={city} onChange={(event) => setCity(event.target.value)} maxLength={100} autoComplete="address-level2" placeholder="Sua cidade" className="h-14 w-full rounded-xl border border-white/15 bg-[#101010]/70 pl-11 pr-4 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20" />
+            </span>
+          </label>
+          <label className="block">
+            <FieldLabel optional>Estado (UF)</FieldLabel>
+            <input name="state" value={stateCode} onChange={(event) => setStateCode(event.target.value.replace(/[^a-z]/gi, "").slice(0, 2).toUpperCase())} maxLength={2} autoComplete="address-level1" placeholder="SP" className="h-14 w-full rounded-xl border border-white/15 bg-[#101010]/70 px-4 text-sm uppercase text-white outline-none transition placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20" />
+          </label>
         </div>
       </section>
 
@@ -205,7 +290,7 @@ export function ProfileSettingsForm({ initialData, configured }: { initialData: 
       {!configured && <p className="rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">Conecte o Supabase para habilitar o salvamento. A tela está em modo de demonstração.</p>}
 
       <div className="sticky bottom-4 z-20 flex items-center justify-end gap-3 rounded-2xl border border-white/10 bg-[#1A1A1A]/90 p-3 shadow-2xl shadow-black/50 backdrop-blur-xl sm:p-4">
-        <Link href="/perfil" className="inline-flex h-12 items-center justify-center rounded-xl border border-white/15 px-5 text-sm font-semibold text-white/70 transition hover:border-white/30 hover:text-white">Cancelar</Link>
+        <Link href="/perfil" className="inline-flex h-12 items-center justify-center rounded-xl border border-white/15 px-4 text-sm font-semibold text-white/70 transition hover:border-white/30 hover:text-white">Pular personalização</Link>
         <Button type="submit" className="min-w-36" disabled={pending || !configured}>
           {pending ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />}
           {pending ? "Salvando..." : "Salvar perfil"}

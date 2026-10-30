@@ -6,6 +6,8 @@ create extension if not exists "pgcrypto";
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text not null default '',
+  real_name text not null default '',
+  stage_name text not null default '',
   username text unique,
   account_type text not null default 'MUSICO' check (account_type in ('MUSICO', 'ORGANIZADOR')),
   status text not null default 'ATIVO' check (status in ('ATIVO', 'INATIVO')),
@@ -13,12 +15,27 @@ create table if not exists public.profiles (
   bio text not null default '',
   career text not null default '',
   avatar_url text not null default '',
+  contact_email text not null default '',
+  contact_phone text not null default '',
+  city text not null default '',
+  state text not null default '',
+  profile_visible boolean not null default false,
   level integer not null default 0 check (level >= 0),
   rating numeric(3, 2) not null default 0 check (rating between 0 and 5),
   review_count integer not null default 0 check (review_count >= 0),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.profiles add column if not exists real_name text not null default '';
+alter table public.profiles add column if not exists stage_name text not null default '';
+alter table public.profiles add column if not exists contact_email text not null default '';
+alter table public.profiles add column if not exists contact_phone text not null default '';
+alter table public.profiles add column if not exists city text not null default '';
+alter table public.profiles add column if not exists state text not null default '';
+alter table public.profiles add column if not exists profile_visible boolean not null default false;
+create index if not exists profiles_public_search_idx on public.profiles (updated_at desc)
+  where profile_visible = true and status = 'ATIVO' and account_type = 'MUSICO';
 
 create table if not exists public.musician_profiles (
   id uuid primary key default gen_random_uuid(),
@@ -117,7 +134,7 @@ alter table public.reviews enable row level security;
 grant usage on schema public to anon, authenticated;
 grant select on public.profiles, public.musician_profiles, public.organizer_profiles, public.events, public.reviews to anon, authenticated;
 grant insert on public.profiles to authenticated;
-grant update (full_name, username, account_type, genre, bio, career, avatar_url) on public.profiles to authenticated;
+grant update (full_name, real_name, stage_name, username, account_type, genre, bio, career, avatar_url, contact_email, contact_phone, city, state, profile_visible) on public.profiles to authenticated;
 grant insert, update, delete on public.musician_profiles, public.organizer_profiles, public.events to authenticated;
 grant insert on public.proposals, public.messages, public.reviews to authenticated;
 grant update (status, negotiated_amount) on public.proposals to authenticated;
@@ -307,8 +324,8 @@ begin
     requested_type := 'MUSICO';
   end if;
 
-  insert into public.profiles (id, full_name, username, account_type)
-  values (new.id, coalesce(new.raw_user_meta_data ->> 'full_name', ''), generated_username, requested_type)
+  insert into public.profiles (id, full_name, real_name, username, account_type)
+  values (new.id, coalesce(new.raw_user_meta_data ->> 'full_name', ''), coalesce(new.raw_user_meta_data ->> 'full_name', ''), generated_username, requested_type)
   on conflict (id) do nothing;
 
   return new;
@@ -381,5 +398,33 @@ create trigger reviews_refresh_stats after insert or update or delete on public.
 
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users for each row execute function public.handle_new_user();
+
+-- Armazenamento público para fotos de perfil; cada usuário só pode alterar arquivos na própria pasta.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('avatars', 'avatars', true, 5242880, array['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
+on conflict (id) do update set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "Avatar images are publicly readable" on storage.objects;
+create policy "Avatar images are publicly readable" on storage.objects
+for select using (bucket_id = 'avatars');
+
+drop policy if exists "Users upload their own avatar images" on storage.objects;
+create policy "Users upload their own avatar images" on storage.objects
+for insert to authenticated
+with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = (select auth.uid())::text);
+
+drop policy if exists "Users update their own avatar images" on storage.objects;
+create policy "Users update their own avatar images" on storage.objects
+for update to authenticated
+using (bucket_id = 'avatars' and (storage.foldername(name))[1] = (select auth.uid())::text)
+with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = (select auth.uid())::text);
+
+drop policy if exists "Users delete their own avatar images" on storage.objects;
+create policy "Users delete their own avatar images" on storage.objects
+for delete to authenticated
+using (bucket_id = 'avatars' and (storage.foldername(name))[1] = (select auth.uid())::text);
 
 commit;

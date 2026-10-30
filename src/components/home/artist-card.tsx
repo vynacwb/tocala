@@ -12,6 +12,7 @@ export function ArtistCard({ artist }: { artist: Artist }) {
       <div className="p-3.5 lg:p-5">
         <h3 className="truncate text-sm font-semibold lg:text-lg">{artist.name}</h3>
         <span className="mt-2 inline-flex rounded-full bg-[#6C1EE7]/20 px-2.5 py-1 text-[10px] font-medium text-[#E4C9FF] lg:text-xs">{artist.genre}</span>
+        {(artist.city || artist.state) && <p className="mt-2 truncate text-xs text-white/50">{[artist.city, artist.state].filter(Boolean).join(", ")}</p>}
         <p className="mt-3 flex items-center gap-1 text-xs text-white/65 lg:mt-4 lg:text-sm" aria-label={`Avaliação ${artist.rating.toLocaleString("pt-BR")} de 5`}>
           <Star className="size-4 fill-[#FBBF24] text-[#FBBF24]" aria-hidden="true" />
           <span className="font-semibold text-white">{artist.rating.toLocaleString("pt-BR", { minimumFractionDigits: 1 })}</span>

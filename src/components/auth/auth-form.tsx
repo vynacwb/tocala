@@ -45,7 +45,7 @@ export function AuthForm({ configured }: { configured: boolean }) {
     const supabase = createClient();
 
     if (isRegistering) {
-      const callbackUrl = `${window.location.origin}/auth/callback?next=/perfil`;
+      const callbackUrl = `${window.location.origin}/auth/callback?next=/perfil/configuracoes`;
       const { data: result, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -57,7 +57,7 @@ export function AuthForm({ configured }: { configured: boolean }) {
         return;
       }
       if (result.session) {
-        router.push("/perfil");
+        router.push("/perfil/configuracoes");
         router.refresh();
         return;
       }
@@ -73,8 +73,7 @@ export function AuthForm({ configured }: { configured: boolean }) {
       return;
     }
 
-    const redirectTo = searchParams.get("redirectTo");
-    router.push(redirectTo?.startsWith("/") ? redirectTo : "/perfil");
+    router.push("/perfil/configuracoes");
     router.refresh();
   }
 

@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const requestedNext = searchParams.get("next");
-  const next = requestedNext?.startsWith("/") ? requestedNext : "/perfil";
+  const next = requestedNext?.startsWith("/") ? requestedNext : "/perfil/configuracoes";
 
   if (!isSupabaseConfigured()) {
     return NextResponse.redirect(`${origin}/login?erro=configuracao`);

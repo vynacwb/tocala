@@ -30,7 +30,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div className="fixed right-4 top-4 z-[100] flex w-[min(360px,calc(100vw-2rem))] flex-col gap-3" aria-live="polite">
+      <div className="fixed left-4 top-4 z-[100] flex w-[min(360px,calc(100vw-2rem))] flex-col gap-3" aria-live="polite">
         {toasts.map((item) => (
           <div key={item.id} className="flex items-start gap-3 rounded-xl border border-white/10 bg-[#222226]/95 p-4 text-sm shadow-2xl shadow-black/40 backdrop-blur-xl">
             {item.tone === "success" ? (

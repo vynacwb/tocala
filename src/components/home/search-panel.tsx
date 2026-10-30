@@ -1,28 +1,24 @@
 "use client";
 
-import { useState } from "react";
 import { ArrowRight, ChevronDown, Search } from "lucide-react";
 import { useToast } from "@/components/providers/app-providers";
 
 const filters = ["Gênero", "Instrumento", "Disponibilidade"];
 
-export function SearchPanel() {
-  const [query, setQuery] = useState("");
+export function SearchPanel({ initialQuery = "" }: { initialQuery?: string }) {
   const { toast } = useToast();
 
   return (
     <div id="busca" className="mt-9 scroll-mt-28 lg:mt-10">
       <h2 className="mb-3 text-lg font-semibold tracking-[-0.025em] lg:mb-4 lg:text-xl">Comece sua busca</h2>
       <form
+        action="/#destaques"
+        method="get"
         className="flex h-14 items-center gap-3 rounded-xl border border-white/10 bg-[#F7F5FA] px-3 shadow-2xl shadow-black/40 focus-within:ring-2 focus-within:ring-[#BA3BE7] lg:h-16 lg:gap-4 lg:px-4"
-        onSubmit={(event) => {
-          event.preventDefault();
-          toast(query.trim() ? `Buscando por “${query.trim()}”` : "Digite um talento, gênero ou instrumento.", query.trim() ? "success" : "error");
-        }}
       >
         <Search className="size-5 shrink-0 text-[#6C1EE7] lg:size-6" strokeWidth={2} aria-hidden="true" />
         <label htmlFor="busca-talentos" className="sr-only">O que ou quem você quer procurar?</label>
-        <input id="busca-talentos" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="O que/quem você quer procurar?" className="min-w-0 flex-1 bg-transparent text-[13px] text-[#202020] outline-none placeholder:text-[#77717E] lg:text-base" />
+        <input id="busca-talentos" name="busca" type="search" defaultValue={initialQuery} placeholder="O que/quem você quer procurar?" className="min-w-0 flex-1 bg-transparent text-[13px] text-[#202020] outline-none placeholder:text-[#77717E] lg:text-base" />
         <button type="submit" className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#6C1EE7] text-white transition hover:bg-[#BA3BE7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6C1EE7] lg:h-11 lg:w-auto lg:px-6 lg:text-sm lg:font-semibold" aria-label="Buscar">
           <span className="hidden lg:inline">Buscar</span>
           <ArrowRight className="size-[18px] lg:hidden" aria-hidden="true" />

@@ -1,8 +1,11 @@
 export type Artist = {
   id: string;
   name: string;
+  realName?: string;
   username: string;
   genre: string;
+  city?: string;
+  state?: string;
   rating: number;
   reviews: number;
   imageUrl: string;
