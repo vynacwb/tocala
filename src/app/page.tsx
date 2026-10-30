@@ -22,7 +22,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     const supabase = await createClient();
     const { data } = await supabase
       .from("profiles")
-      .select("id, real_name, stage_name, username, genre, rating, review_count, avatar_url, city, state")
+      .select("id, real_name, stage_name, username, genre, rating, review_count, avatar_url, avatar_position_x, avatar_position_y, city, state")
       .eq("account_type", "MUSICO")
       .eq("status", "ATIVO")
       .eq("profile_visible", true)
@@ -38,6 +38,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       rating: Number(artist.rating),
       reviews: artist.review_count,
       imageUrl: artist.avatar_url || featuredArtists[0].imageUrl,
+      avatarPositionX: artist.avatar_position_x,
+      avatarPositionY: artist.avatar_position_y,
       city: artist.city,
       state: artist.state,
     }));

@@ -62,6 +62,8 @@ export function ProfileSettingsForm({ initialData, configured }: { initialData: 
   const [genre, setGenre] = useState(initialData.genre);
   const [bio, setBio] = useState(initialData.bio);
   const [avatarUrl, setAvatarUrl] = useState(initialData.avatarUrl);
+  const [avatarPositionX, setAvatarPositionX] = useState(initialData.avatarPositionX);
+  const [avatarPositionY, setAvatarPositionY] = useState(initialData.avatarPositionY);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [experiences, setExperiences] = useState<CareerExperience[]>(initialData.experiences);
   const { toast } = useToast();
@@ -141,7 +143,7 @@ export function ProfileSettingsForm({ initialData, configured }: { initialData: 
             <div className="grid grid-cols-[116px_1fr] items-center gap-4 lg:block">
               <div className="relative mx-auto size-28 lg:size-44">
                 <div className="h-full w-full overflow-hidden rounded-full border-4 border-[#1A1A1A] bg-[#27232D] shadow-2xl shadow-black/40 ring-2 ring-[#BA3BE7]/65">
-                  {avatarUrl ? <img src={avatarUrl} alt="Prévia da foto de perfil" className="h-full w-full object-cover" /> : <UserRound className="h-full w-full p-7 text-white/25" />}
+                  {avatarUrl ? <img src={avatarUrl} alt="Prévia da foto de perfil" style={{ objectPosition: `${avatarPositionX}% ${avatarPositionY}%` }} className="h-full w-full object-cover" /> : <UserRound className="h-full w-full p-7 text-white/25" />}
                 </div>
                 <span className="absolute bottom-1 right-0 flex size-10 items-center justify-center rounded-xl border-2 border-[#1A1A1A] bg-[#6C1EE7] text-white shadow-lg shadow-[#6C1EE7]/30 lg:bottom-2 lg:size-12">
                   <Camera className="size-5" />
@@ -161,6 +163,21 @@ export function ProfileSettingsForm({ initialData, configured }: { initialData: 
               <summary className="cursor-pointer text-xs font-medium text-white/60">Ou use uma URL de imagem</summary>
               <input name="avatarUrl" type="url" value={avatarUrl} onChange={(event) => setAvatarUrl(event.target.value)} placeholder="https://imagem..." aria-label="URL da foto de perfil" className="mt-3 h-11 w-full rounded-lg border border-white/15 bg-[#101010]/70 px-3 text-xs text-white outline-none transition placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20" />
             </details>
+            <div className="mt-4 rounded-xl border border-white/10 bg-[#101010]/50 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-medium text-white/75">Ajustar enquadramento</p>
+                <button type="button" onClick={() => { setAvatarPositionX(50); setAvatarPositionY(50); }} className="text-xs text-[#D6A0FF] transition hover:text-white">Centralizar</button>
+              </div>
+              <p className="mt-1 text-[11px] leading-relaxed text-white/40">Mova o foco para escolher qual parte da foto aparece no perfil.</p>
+              <label className="mt-3 block">
+                <span className="flex justify-between text-[11px] text-white/55"><span>Horizontal</span><output>{avatarPositionX}%</output></span>
+                <input name="avatarPositionX" type="range" min="0" max="100" value={avatarPositionX} onChange={(event) => setAvatarPositionX(Number(event.target.value))} aria-label="Posição horizontal da foto" className="mt-2 h-2 w-full cursor-pointer accent-[#BA3BE7]" />
+              </label>
+              <label className="mt-2 block">
+                <span className="flex justify-between text-[11px] text-white/55"><span>Vertical</span><output>{avatarPositionY}%</output></span>
+                <input name="avatarPositionY" type="range" min="0" max="100" value={avatarPositionY} onChange={(event) => setAvatarPositionY(Number(event.target.value))} aria-label="Posição vertical da foto" className="mt-2 h-2 w-full cursor-pointer accent-[#BA3BE7]" />
+              </label>
+            </div>
           </div>
 
           <div className="grid content-start gap-4 sm:grid-cols-2">

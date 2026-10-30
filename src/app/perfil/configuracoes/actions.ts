@@ -40,6 +40,8 @@ export async function saveProfileSettings(
   const genre = String(formData.get("genre") ?? "").trim();
   const bio = String(formData.get("bio") ?? "").trim();
   const avatarUrl = String(formData.get("avatarUrl") ?? "").trim();
+  const avatarPositionX = Number(formData.get("avatarPositionX") ?? 50);
+  const avatarPositionY = Number(formData.get("avatarPositionY") ?? 50);
 
   if (realName.length < 2 || realName.length > 100) return errorState("Informe seu nome verdadeiro entre 2 e 100 caracteres.");
   if (stageName.length > 80 || (stageName.length > 0 && stageName.length < 2)) return errorState("O nome artístico deve ter pelo menos 2 caracteres ou ficar em branco.");
@@ -50,6 +52,7 @@ export async function saveProfileSettings(
   if (!genre || genre.length > 60) return errorState("Selecione um estilo musical válido.");
   if (bio.length > 20000) return errorState("O texto sobre o artista ultrapassou 20.000 caracteres.");
   if (!isWebUrl(avatarUrl)) return errorState("Informe uma URL válida para a foto de perfil.");
+  if (![avatarPositionX, avatarPositionY].every((value) => Number.isInteger(value) && value >= 0 && value <= 100)) return errorState("Ajuste o enquadramento da foto entre 0 e 100.");
 
   let experiences: CareerExperience[];
   try {
@@ -97,6 +100,8 @@ export async function saveProfileSettings(
       bio,
       career,
       avatar_url: avatarUrl,
+      avatar_position_x: avatarPositionX,
+      avatar_position_y: avatarPositionY,
     })
     .eq("id", user.id);
 

@@ -9,6 +9,8 @@ export type Artist = {
   rating: number;
   reviews: number;
   imageUrl: string;
+  avatarPositionX?: number;
+  avatarPositionY?: number;
 };
 
 export const featuredArtists: Artist[] = [

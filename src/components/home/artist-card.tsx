@@ -7,7 +7,7 @@ export function ArtistCard({ artist }: { artist: Artist }) {
   return (
     <article className="group overflow-hidden rounded-2xl border border-white/10 bg-[#1A1A1A] shadow-2xl shadow-black/40 transition duration-300 hover:-translate-y-1 hover:border-[#BA3BE7]/60">
       <div className="relative aspect-square overflow-hidden bg-[#2E203B]">
-        <Image src={artist.imageUrl} alt={`${artist.name} em apresentação musical`} fill sizes="(min-width: 1024px) 276px, 50vw" className="object-cover transition duration-500 group-hover:scale-105" />
+        <Image src={artist.imageUrl} alt={`${artist.name} em apresentação musical`} fill sizes="(min-width: 1024px) 276px, 50vw" style={{ objectPosition: `${artist.avatarPositionX ?? 50}% ${artist.avatarPositionY ?? 50}%` }} className="object-cover transition duration-500 group-hover:scale-105" />
       </div>
       <div className="p-3.5 lg:p-5">
         <h3 className="truncate text-sm font-semibold lg:text-lg">{artist.name}</h3>

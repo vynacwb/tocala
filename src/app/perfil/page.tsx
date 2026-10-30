@@ -26,6 +26,8 @@ type Profile = {
   bio: string;
   career: string;
   avatar_url: string;
+  avatar_position_x: number;
+  avatar_position_y: number;
   level: number;
   rating: number;
   review_count: number;
@@ -50,6 +52,8 @@ const demoProfile: Profile = {
   bio: "Cantora e compositora movida por encontros, histórias e pela força da música brasileira. Cada apresentação é criada para aproximar o público e transformar o palco em um espaço de troca.",
   career: "Com oito anos de estrada, Marina já passou por casas de show e festivais em diferentes cidades. Seu repertório reúne composições autorais, releituras da MPB e influências de soul contemporâneo.",
   avatar_url: "https://images.unsplash.com/photo-1643370857818-d3705b0a1ec1?auto=format&fit=crop&w=600&q=85",
+  avatar_position_x: 50,
+  avatar_position_y: 50,
   level: 0,
   rating: 4.9,
   review_count: 48,
@@ -73,7 +77,7 @@ async function getProfileData(publicArtistId?: string): Promise<{ profile: Profi
   if (publicArtistId) {
     if (!/^[0-9a-f-]{36}$/i.test(publicArtistId)) notFound();
     const [{ data: profileData }, { data: reviewsData }] = await Promise.all([
-      supabase.from("profiles").select("real_name, stage_name, full_name, username, genre, bio, career, avatar_url, level, rating, review_count, contact_email, contact_phone, city, state").eq("id", publicArtistId).eq("profile_visible", true).eq("status", "ATIVO").maybeSingle(),
+      supabase.from("profiles").select("real_name, stage_name, full_name, username, genre, bio, career, avatar_url, avatar_position_x, avatar_position_y, level, rating, review_count, contact_email, contact_phone, city, state").eq("id", publicArtistId).eq("profile_visible", true).eq("status", "ATIVO").maybeSingle(),
       supabase.from("reviews").select("id, author_name, author_avatar_url, body, rating").eq("artist_id", publicArtistId).order("created_at", { ascending: false }).limit(6),
     ]);
     if (!profileData) notFound();
@@ -85,6 +89,8 @@ async function getProfileData(publicArtistId?: string): Promise<{ profile: Profi
       bio: profileData.bio,
       career: profileData.career,
       avatar_url: profileData.avatar_url || demoProfile.avatar_url,
+      avatar_position_x: profileData.avatar_position_x ?? 50,
+      avatar_position_y: profileData.avatar_position_y ?? 50,
       level: profileData.level,
       rating: Number(profileData.rating),
       review_count: profileData.review_count,
@@ -100,7 +106,7 @@ async function getProfileData(publicArtistId?: string): Promise<{ profile: Profi
   if (!user) redirect("/login?redirectTo=/perfil");
 
   const [{ data: profileData }, { data: reviewsData }] = await Promise.all([
-    supabase.from("profiles").select("real_name, stage_name, full_name, username, genre, bio, career, avatar_url, level, rating, review_count, contact_email, contact_phone, city, state").eq("id", user.id).maybeSingle(),
+    supabase.from("profiles").select("real_name, stage_name, full_name, username, genre, bio, career, avatar_url, avatar_position_x, avatar_position_y, level, rating, review_count, contact_email, contact_phone, city, state").eq("id", user.id).maybeSingle(),
     supabase.from("reviews").select("id, author_name, author_avatar_url, body, rating").eq("artist_id", user.id).order("created_at", { ascending: false }).limit(6),
   ]);
 
@@ -112,6 +118,8 @@ async function getProfileData(publicArtistId?: string): Promise<{ profile: Profi
     bio: profileData?.bio || demoProfile.bio,
     career: profileData?.career || demoProfile.career,
     avatar_url: profileData?.avatar_url || demoProfile.avatar_url,
+    avatar_position_x: profileData?.avatar_position_x ?? 50,
+    avatar_position_y: profileData?.avatar_position_y ?? 50,
     contact_email: profileData?.contact_email || "",
     contact_phone: profileData?.contact_phone || "",
     city: profileData?.city || "",
@@ -159,7 +167,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
           <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-r from-[#6C1EE7]/30 via-[#BA3BE7]/15 to-transparent lg:h-40" />
           <div className="relative flex flex-col items-center px-5 pb-6 pt-10 text-center lg:px-10 lg:pb-8 lg:pt-12">
             <div className="size-32 overflow-hidden rounded-full border-4 border-[#1A1A1A] bg-[#30243B] shadow-xl shadow-black/40 ring-2 ring-[#BA3BE7]/65 lg:size-40">
-              <img src={profile.avatar_url} alt={`Retrato de ${profile.full_name}`} className="h-full w-full object-cover object-center" />
+              <img src={profile.avatar_url} alt={`Retrato de ${profile.full_name}`} style={{ objectPosition: `${profile.avatar_position_x}% ${profile.avatar_position_y}%` }} className="h-full w-full object-cover" />
             </div>
             <div className="mt-5">
               <h1 className="text-[28px] font-bold leading-tight tracking-[-0.04em] lg:text-[40px]">{profile.full_name}</h1>

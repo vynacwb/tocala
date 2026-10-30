@@ -16,6 +16,8 @@ export type ProfileSettingsData = {
   genre: string;
   bio: string;
   avatarUrl: string;
+  avatarPositionX: number;
+  avatarPositionY: number;
   experiences: CareerExperience[];
 };
 

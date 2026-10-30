@@ -15,6 +15,8 @@ create table if not exists public.profiles (
   bio text not null default '',
   career text not null default '',
   avatar_url text not null default '',
+  avatar_position_x smallint not null default 50 check (avatar_position_x between 0 and 100),
+  avatar_position_y smallint not null default 50 check (avatar_position_y between 0 and 100),
   contact_email text not null default '',
   contact_phone text not null default '',
   city text not null default '',
@@ -34,6 +36,8 @@ alter table public.profiles add column if not exists contact_phone text not null
 alter table public.profiles add column if not exists city text not null default '';
 alter table public.profiles add column if not exists state text not null default '';
 alter table public.profiles add column if not exists profile_visible boolean not null default false;
+alter table public.profiles add column if not exists avatar_position_x smallint not null default 50 check (avatar_position_x between 0 and 100);
+alter table public.profiles add column if not exists avatar_position_y smallint not null default 50 check (avatar_position_y between 0 and 100);
 create index if not exists profiles_public_search_idx on public.profiles (updated_at desc)
   where profile_visible = true and status = 'ATIVO' and account_type = 'MUSICO';
 
@@ -134,7 +138,7 @@ alter table public.reviews enable row level security;
 grant usage on schema public to anon, authenticated;
 grant select on public.profiles, public.musician_profiles, public.organizer_profiles, public.events, public.reviews to anon, authenticated;
 grant insert on public.profiles to authenticated;
-grant update (full_name, real_name, stage_name, username, account_type, genre, bio, career, avatar_url, contact_email, contact_phone, city, state, profile_visible) on public.profiles to authenticated;
+grant update (full_name, real_name, stage_name, username, account_type, genre, bio, career, avatar_url, avatar_position_x, avatar_position_y, contact_email, contact_phone, city, state, profile_visible) on public.profiles to authenticated;
 grant insert, update, delete on public.musician_profiles, public.organizer_profiles, public.events to authenticated;
 grant insert on public.proposals, public.messages, public.reviews to authenticated;
 grant update (status, negotiated_amount) on public.proposals to authenticated;
