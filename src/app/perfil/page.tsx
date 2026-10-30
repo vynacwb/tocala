@@ -7,6 +7,7 @@ import { ArrowLeft, CalendarDays, Mail, MapPin, Pencil, Phone, Star } from "luci
 import { Brand } from "@/components/layout/brand";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { ProfileActionsMenu } from "@/components/profile/profile-actions-menu";
+import { DemoReviewNotice } from "@/components/profile/demo-review-notice";
 import { Card } from "@/components/ui/card";
 import { SectionTitle } from "@/components/ui/section-title";
 import { SignOutButton } from "@/components/profile/sign-out-button";
@@ -146,8 +147,8 @@ function Rating({ value, label }: { value: number; label: string }) {
   );
 }
 
-export default async function ProfilePage({ searchParams }: { searchParams: Promise<{ artista?: string }> }) {
-  const { artista } = await searchParams;
+export default async function ProfilePage({ searchParams }: { searchParams: Promise<{ artista?: string; avaliacaoDemo?: string }> }) {
+  const { artista, avaliacaoDemo } = await searchParams;
   const configured = isSupabaseConfigured();
   const { profile, reviews, isPublicView } = await getProfileData(artista);
   const bookingDays = BOOKING_WEEKDAYS.filter((day) => profile.booking_weekdays.includes(day.value));
@@ -176,6 +177,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
       </header>
 
       <main className="mx-auto max-w-[400px] space-y-6 px-5 pb-32 pt-[calc(env(safe-area-inset-top)+100px)] lg:max-w-[1200px] lg:space-y-8 lg:px-6 lg:pb-20 lg:pt-32">
+        {isPublicView && artista && avaliacaoDemo === "1" && <DemoReviewNotice artistId={artista} />}
         <Card className="relative overflow-hidden lg:rounded-3xl">
           <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-r from-[#6C1EE7]/30 via-[#BA3BE7]/15 to-transparent lg:h-40" />
           <div className="relative flex flex-col items-center px-5 pb-6 pt-10 text-center lg:px-10 lg:pb-8 lg:pt-12">
@@ -196,6 +198,14 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
             </div>
           </div>
         </Card>
+
+        {isPublicView && artista && <Card className="flex flex-col items-start justify-between gap-4 border-[#BA3BE7]/25 bg-[#6C1EE7]/10 p-5 sm:flex-row sm:items-center sm:p-6">
+          <div>
+            <h2 className="text-lg font-semibold">Gostou do trabalho de {profile.full_name}?</h2>
+            <p className="mt-1 text-sm text-white/55">Envie uma proposta de contratação para uma apresentação.</p>
+          </div>
+          <Link href={`/contratos/novo?artista=${encodeURIComponent(artista)}`} className="inline-flex h-11 w-full shrink-0 items-center justify-center rounded-xl bg-[#6C1EE7] px-5 text-sm font-semibold text-white transition hover:bg-[#BA3BE7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7] sm:w-auto">Contratar</Link>
+        </Card>}
 
         {(profile.contact_email || profile.contact_phone) && <Card className="bg-[#222226] p-6 lg:p-8">
           <SectionTitle>Contato</SectionTitle>

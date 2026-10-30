@@ -17,7 +17,7 @@ export function ArtistCard({ artist }: { artist: Artist }) {
           <Star className="size-4 fill-[#FBBF24] text-[#FBBF24]" aria-hidden="true" />
           <span className="font-semibold text-white">{artist.rating.toLocaleString("pt-BR", { minimumFractionDigits: 1 })}</span>
           <span className="hidden sm:inline">({artist.reviews} avaliações)</span>
-        </p> : <p className="mt-3 text-xs font-semibold text-white/55 lg:mt-4 lg:text-sm" aria-label="Sem avaliações">--</p>}
+        </p> : <p className="mt-3 flex items-center gap-1 text-xs font-semibold text-white/55 lg:mt-4 lg:text-sm" aria-label="Sem avaliações"><Star className="size-4 fill-transparent text-white/45" aria-hidden="true" />--</p>}
         <Link href={`/perfil?artista=${artist.id}`} className="mt-4 block w-full rounded-lg border border-white/20 px-2 py-2.5 text-center text-xs font-semibold transition hover:border-[#BA3BE7] hover:bg-[#6C1EE7]/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7] lg:mt-5 lg:text-sm">
           Ver Perfil
         </Link>
