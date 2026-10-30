@@ -2,23 +2,92 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Check, ChevronDown, Search, X } from "lucide-react";
+import { ArrowRight, CalendarDays, Check, ChevronDown, Search, X } from "lucide-react";
 import { useToast } from "@/components/providers/app-providers";
 import { MUSIC_GENRES } from "@/lib/genres";
+import { formatDateLabel, parseDateKey } from "@/lib/availability";
+import { MonthCalendar } from "@/components/calendar/month-calendar";
 
 const filters = ["Gênero", "Instrumento", "Disponibilidade"];
 
-export function SearchPanel({ initialQuery = "", initialGenres = [] }: { initialQuery?: string; initialGenres?: string[] }) {
+export function SearchPanel({ initialQuery = "", initialGenres = [], initialAvailabilityStart = "", initialAvailabilityEnd = "" }: { initialQuery?: string; initialGenres?: string[]; initialAvailabilityStart?: string; initialAvailabilityEnd?: string }) {
   const { toast } = useToast();
   const router = useRouter();
   const [query, setQuery] = useState(initialQuery);
   const [selectedGenres, setSelectedGenres] = useState<string[]>(initialGenres);
   const [draftGenres, setDraftGenres] = useState<string[]>(initialGenres);
   const [genrePanelOpen, setGenrePanelOpen] = useState(false);
+  const [availabilityStart, setAvailabilityStart] = useState(initialAvailabilityStart);
+  const [availabilityEnd, setAvailabilityEnd] = useState(initialAvailabilityEnd);
+  const [draftStart, setDraftStart] = useState(initialAvailabilityStart);
+  const [draftEnd, setDraftEnd] = useState(initialAvailabilityEnd);
+  const [availabilityPanelOpen, setAvailabilityPanelOpen] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const initialDate = parseDateKey(initialAvailabilityStart);
+    const date = initialDate ?? new Date();
+    return new Date(date.getFullYear(), date.getMonth(), 1);
+  });
 
   function openGenrePanel() {
     setDraftGenres(selectedGenres);
     setGenrePanelOpen(true);
+  }
+
+  function openAvailabilityPanel() {
+    setDraftStart(availabilityStart);
+    setDraftEnd(availabilityEnd);
+    const initialDate = parseDateKey(availabilityStart);
+    const date = initialDate ?? new Date();
+    setCalendarMonth(new Date(date.getFullYear(), date.getMonth(), 1));
+    setAvailabilityPanelOpen(true);
+  }
+
+  function chooseRangeDate(date: string) {
+    if (!draftStart || draftEnd) {
+      setDraftStart(date);
+      setDraftEnd("");
+    } else if (date < draftStart) {
+      setDraftStart(date);
+      setDraftEnd("");
+    } else {
+      setDraftEnd(date);
+    }
+  }
+
+  function updateAvailabilityUrl(start: string, end: string) {
+    const params = new URLSearchParams(window.location.search);
+    const normalizedQuery = query.trim();
+    if (normalizedQuery) params.set("busca", normalizedQuery);
+    else params.delete("busca");
+    if (start && end) {
+      params.set("disponivel_de", start);
+      params.set("disponivel_ate", end);
+    } else {
+      params.delete("disponivel_de");
+      params.delete("disponivel_ate");
+    }
+    const search = params.toString();
+    router.push(`${search ? `/?${search}` : "/"}#destaques`);
+  }
+
+  function applyAvailability() {
+    if (!draftStart || !draftEnd) {
+      toast("Escolha uma data inicial e uma data final.", "error");
+      return;
+    }
+    setAvailabilityStart(draftStart);
+    setAvailabilityEnd(draftEnd);
+    updateAvailabilityUrl(draftStart, draftEnd);
+    setAvailabilityPanelOpen(false);
+  }
+
+  function clearAvailability() {
+    setDraftStart("");
+    setDraftEnd("");
+    setAvailabilityStart("");
+    setAvailabilityEnd("");
+    updateAvailabilityUrl("", "");
+    setAvailabilityPanelOpen(false);
   }
 
   function applyGenres() {
@@ -46,6 +115,8 @@ export function SearchPanel({ initialQuery = "", initialGenres = [] }: { initial
         <label htmlFor="busca-talentos" className="sr-only">O que ou quem você quer procurar?</label>
         <input id="busca-talentos" name="busca" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="O que/quem você quer procurar?" className="min-w-0 flex-1 bg-transparent text-[13px] text-[#202020] outline-none placeholder:text-[#77717E] lg:text-base" />
         <input type="hidden" name="generos" value={selectedGenres.join(",")} />
+        <input type="hidden" name="disponivel_de" value={availabilityStart} />
+        <input type="hidden" name="disponivel_ate" value={availabilityEnd} />
         <button type="submit" className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#6C1EE7] text-white transition hover:bg-[#BA3BE7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6C1EE7] lg:h-11 lg:w-auto lg:px-6 lg:text-sm lg:font-semibold" aria-label="Buscar">
           <span className="hidden lg:inline">Buscar</span>
           <ArrowRight className="size-[18px] lg:hidden" aria-hidden="true" />
@@ -54,8 +125,8 @@ export function SearchPanel({ initialQuery = "", initialGenres = [] }: { initial
 
       <div className="hide-scrollbar -mx-5 mt-4 flex gap-2.5 overflow-x-auto px-5 pb-2 lg:mx-0 lg:mt-5 lg:flex-wrap lg:gap-3 lg:px-0" aria-label="Filtros de busca">
         {filters.map((filter) => (
-          <button key={filter} type="button" onClick={filter === "Gênero" ? openGenrePanel : () => toast(`Filtro “${filter}” estará disponível em breve.`)} aria-expanded={filter === "Gênero" ? genrePanelOpen : undefined} className={`inline-flex shrink-0 items-center gap-2 rounded-lg border px-3.5 py-2.5 text-[13px] font-medium transition hover:border-[#BA3BE7] hover:bg-[#6C1EE7]/40 lg:px-4 lg:py-3 ${filter === "Gênero" && selectedGenres.length > 0 ? "border-[#BA3BE7] bg-[#6C1EE7]/40 text-white" : "border-[#BA3BE7]/40 bg-[#6C1EE7]/25 text-[#E4C9FF]"}`}>
-            {filter === "Gênero" && selectedGenres.length > 0 ? `Gênero (${selectedGenres.length})` : filter}<ChevronDown className="size-3.5" strokeWidth={1.8} />
+          <button key={filter} type="button" onClick={filter === "Gênero" ? openGenrePanel : filter === "Disponibilidade" ? openAvailabilityPanel : () => toast(`Filtro “${filter}” estará disponível em breve.`)} aria-expanded={filter === "Gênero" ? genrePanelOpen : filter === "Disponibilidade" ? availabilityPanelOpen : undefined} className={`inline-flex shrink-0 items-center gap-2 rounded-lg border px-3.5 py-2.5 text-[13px] font-medium transition hover:border-[#BA3BE7] hover:bg-[#6C1EE7]/40 lg:px-4 lg:py-3 ${(filter === "Gênero" && selectedGenres.length > 0) || (filter === "Disponibilidade" && availabilityStart && availabilityEnd) ? "border-[#BA3BE7] bg-[#6C1EE7]/40 text-white" : "border-[#BA3BE7]/40 bg-[#6C1EE7]/25 text-[#E4C9FF]"}`}>
+            {filter === "Gênero" && selectedGenres.length > 0 ? `Gênero (${selectedGenres.length})` : filter === "Disponibilidade" && availabilityStart && availabilityEnd ? "Disponibilidade (período)" : filter}<ChevronDown className="size-3.5" strokeWidth={1.8} />
           </button>
         ))}
       </div>
@@ -84,6 +155,30 @@ export function SearchPanel({ initialQuery = "", initialGenres = [] }: { initial
             <div className="flex gap-2">
               <button type="button" onClick={() => setGenrePanelOpen(false)} className="rounded-lg border border-white/15 px-3.5 py-2.5 text-sm text-white/75 transition hover:bg-white/5">Cancelar</button>
               <button type="button" onClick={applyGenres} className="rounded-lg bg-[#6C1EE7] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#BA3BE7]">Aplicar{draftGenres.length > 0 ? ` (${draftGenres.length})` : ""}</button>
+            </div>
+          </div>
+        </section>
+      </div>}
+
+      {availabilityPanelOpen && <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm lg:items-center lg:p-6" role="presentation" onClick={() => setAvailabilityPanelOpen(false)}>
+        <section role="dialog" aria-modal="true" aria-labelledby="availability-filter-title" onClick={(event) => event.stopPropagation()} className="flex max-h-[92dvh] w-full max-w-lg flex-col overflow-y-auto rounded-t-3xl border border-white/10 bg-[#202020] p-4 shadow-2xl shadow-black/60 sm:p-6 lg:rounded-3xl">
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div>
+              <h3 id="availability-filter-title" className="text-lg font-semibold">Quando você precisa de um artista?</h3>
+              <p className="mt-1 text-xs leading-relaxed text-white/50">Selecione a primeira e a última data do período desejado.</p>
+            </div>
+            <button type="button" onClick={() => setAvailabilityPanelOpen(false)} className="flex size-9 shrink-0 items-center justify-center rounded-lg text-white/55 transition hover:bg-white/5 hover:text-white" aria-label="Fechar filtro de disponibilidade"><X className="size-5" /></button>
+          </div>
+          <div className="mb-4 grid grid-cols-2 gap-2 text-xs">
+            <div className="rounded-xl border border-white/10 bg-[#101010]/50 p-3"><span className="block text-white/40">De</span><span className="mt-1 block font-medium text-white/85">{draftStart ? formatDateLabel(draftStart) : "Escolha a data"}</span></div>
+            <div className="rounded-xl border border-white/10 bg-[#101010]/50 p-3"><span className="block text-white/40">Até</span><span className="mt-1 block font-medium text-white/85">{draftEnd ? formatDateLabel(draftEnd) : "Escolha a data"}</span></div>
+          </div>
+          <MonthCalendar month={calendarMonth} onMonthChange={setCalendarMonth} onSelectDate={chooseRangeDate} rangeStart={draftStart} rangeEnd={draftEnd} />
+          <div className="mt-4 flex items-center justify-between gap-2 border-t border-white/10 pt-4">
+            <button type="button" onClick={clearAvailability} className="rounded-lg px-3 py-2.5 text-sm text-white/55 transition hover:bg-white/5 hover:text-white">Limpar período</button>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setAvailabilityPanelOpen(false)} className="rounded-lg border border-white/15 px-3.5 py-2.5 text-sm text-white/75 transition hover:bg-white/5">Cancelar</button>
+              <button type="button" onClick={applyAvailability} className="inline-flex items-center gap-2 rounded-lg bg-[#6C1EE7] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#BA3BE7]"><CalendarDays className="size-4" />Aplicar período</button>
             </div>
           </div>
         </section>

@@ -11,6 +11,7 @@ export type Artist = {
   imageUrl: string;
   avatarPositionX?: number;
   avatarPositionY?: number;
+  bookingWeekdays?: number[];
 };
 
 export const featuredArtists: Artist[] = [

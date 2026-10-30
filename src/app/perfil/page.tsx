@@ -3,13 +3,14 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, Mail, MapPin, Pencil, Phone, Star } from "lucide-react";
+import { ArrowLeft, CalendarDays, Mail, MapPin, Pencil, Phone, Star } from "lucide-react";
 import { Brand } from "@/components/layout/brand";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { ProfileActionsMenu } from "@/components/profile/profile-actions-menu";
 import { Card } from "@/components/ui/card";
 import { SectionTitle } from "@/components/ui/section-title";
 import { SignOutButton } from "@/components/profile/sign-out-button";
+import { BOOKING_WEEKDAYS } from "@/lib/availability";
 import { isSupabaseConfigured } from "@/utils/supabase/config";
 import { createClient } from "@/utils/supabase/server";
 
@@ -29,6 +30,7 @@ type Profile = {
   avatar_url: string;
   avatar_position_x: number;
   avatar_position_y: number;
+  booking_weekdays: number[];
   level: number;
   rating: number;
   review_count: number;
@@ -55,6 +57,7 @@ const demoProfile: Profile = {
   avatar_url: "https://images.unsplash.com/photo-1643370857818-d3705b0a1ec1?auto=format&fit=crop&w=600&q=85",
   avatar_position_x: 50,
   avatar_position_y: 50,
+  booking_weekdays: [5, 6, 0],
   level: 0,
   rating: 4.9,
   review_count: 48,
@@ -78,7 +81,7 @@ async function getProfileData(publicArtistId?: string): Promise<{ profile: Profi
   if (publicArtistId) {
     if (!/^[0-9a-f-]{36}$/i.test(publicArtistId)) notFound();
     const [{ data: profileData }, { data: reviewsData }] = await Promise.all([
-      supabase.from("profiles").select("real_name, stage_name, full_name, username, genre, bio, career, avatar_url, avatar_position_x, avatar_position_y, level, rating, review_count, contact_email, contact_phone, city, state").eq("id", publicArtistId).eq("profile_visible", true).eq("status", "ATIVO").maybeSingle(),
+      supabase.from("profiles").select("real_name, stage_name, full_name, username, genre, bio, career, avatar_url, avatar_position_x, avatar_position_y, booking_weekdays, level, rating, review_count, contact_email, contact_phone, city, state").eq("id", publicArtistId).eq("profile_visible", true).eq("status", "ATIVO").maybeSingle(),
       supabase.from("reviews").select("id, author_name, author_avatar_url, body, rating").eq("artist_id", publicArtistId).order("created_at", { ascending: false }).limit(6),
     ]);
     if (!profileData) notFound();
@@ -92,6 +95,7 @@ async function getProfileData(publicArtistId?: string): Promise<{ profile: Profi
       avatar_url: profileData.avatar_url || demoProfile.avatar_url,
       avatar_position_x: profileData.avatar_position_x ?? 50,
       avatar_position_y: profileData.avatar_position_y ?? 50,
+      booking_weekdays: Array.isArray(profileData.booking_weekdays) ? profileData.booking_weekdays.map(Number) : demoProfile.booking_weekdays,
       level: profileData.level,
       rating: Number(profileData.rating),
       review_count: profileData.review_count,
@@ -107,7 +111,7 @@ async function getProfileData(publicArtistId?: string): Promise<{ profile: Profi
   if (!user) redirect("/login?redirectTo=/perfil");
 
   const [{ data: profileData }, { data: reviewsData }] = await Promise.all([
-    supabase.from("profiles").select("real_name, stage_name, full_name, username, genre, bio, career, avatar_url, avatar_position_x, avatar_position_y, level, rating, review_count, contact_email, contact_phone, city, state").eq("id", user.id).maybeSingle(),
+    supabase.from("profiles").select("real_name, stage_name, full_name, username, genre, bio, career, avatar_url, avatar_position_x, avatar_position_y, booking_weekdays, level, rating, review_count, contact_email, contact_phone, city, state").eq("id", user.id).maybeSingle(),
     supabase.from("reviews").select("id, author_name, author_avatar_url, body, rating").eq("artist_id", user.id).order("created_at", { ascending: false }).limit(6),
   ]);
 
@@ -121,6 +125,7 @@ async function getProfileData(publicArtistId?: string): Promise<{ profile: Profi
     avatar_url: profileData?.avatar_url || demoProfile.avatar_url,
     avatar_position_x: profileData?.avatar_position_x ?? 50,
     avatar_position_y: profileData?.avatar_position_y ?? 50,
+    booking_weekdays: Array.isArray(profileData?.booking_weekdays) ? profileData.booking_weekdays.map(Number) : demoProfile.booking_weekdays,
     contact_email: profileData?.contact_email || "",
     contact_phone: profileData?.contact_phone || "",
     city: profileData?.city || "",
@@ -145,6 +150,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   const { artista } = await searchParams;
   const configured = isSupabaseConfigured();
   const { profile, reviews, isPublicView } = await getProfileData(artista);
+  const bookingDays = BOOKING_WEEKDAYS.filter((day) => profile.booking_weekdays.includes(day.value));
 
   return (
     <div className="mx-auto min-h-dvh max-w-[400px] bg-[#1A1A1A] shadow-2xl shadow-black/40 lg:max-w-none lg:bg-[#101010] lg:shadow-none">
@@ -155,6 +161,9 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
           <div className="flex items-center gap-2">
             {!isPublicView && <>
             <div className="hidden items-center gap-2 lg:flex">
+              <Link href="/perfil/disponibilidade" className="flex size-10 items-center justify-center rounded-xl border border-white/15 bg-white/5 text-white/70 transition hover:border-[#BA3BE7] hover:text-[#D6A0FF]" aria-label="Disponibilidade">
+                <CalendarDays className="size-5" strokeWidth={1.8} />
+              </Link>
               <Link href="/perfil/configuracoes" className="flex size-10 items-center justify-center rounded-xl border border-white/15 bg-white/5 text-white/70 transition hover:border-[#BA3BE7] hover:text-[#D6A0FF]" aria-label="Personalização do perfil">
                 <Pencil className="size-5" strokeWidth={1.8} />
               </Link>
@@ -195,6 +204,17 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
             {profile.contact_phone && <a href={whatsappUrl(profile.contact_phone)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-[#1A1A1A] px-4 py-3 text-sm text-white/75 transition hover:border-[#BA3BE7] hover:text-[#D6A0FF]"><Phone className="size-4" />WhatsApp</a>}
           </div>
         </Card>}
+
+        <Card className="bg-[#222226] p-6 lg:p-8">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <SectionTitle>Dias para contratação:</SectionTitle>
+              <p className="mt-2 text-sm text-white/50">Dias habituais em que o artista aceita propostas.</p>
+            </div>
+            {!isPublicView && <Link href="/perfil/disponibilidade" className="text-xs font-semibold text-[#D6A0FF] transition hover:text-white">Editar disponibilidade</Link>}
+          </div>
+          {bookingDays.length > 0 ? <div className="mt-5 flex flex-wrap gap-2">{bookingDays.map((day) => <span key={day.value} className="rounded-lg border border-[#BA3BE7]/25 bg-[#6C1EE7]/15 px-3 py-2 text-xs font-medium text-[#E4C9FF]">{day.label}</span>)}</div> : <p className="mt-5 text-sm text-white/50">Nenhum dia habitual selecionado.</p>}
+        </Card>
 
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-6">
           <Card className="bg-[#222226] p-6 lg:p-8">

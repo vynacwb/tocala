@@ -22,6 +22,7 @@ create table if not exists public.profiles (
   city text not null default '',
   state text not null default '',
   profile_visible boolean not null default false,
+  booking_weekdays smallint[] not null default '{0,1,2,3,4,5,6}'::smallint[] check (booking_weekdays <@ array[0,1,2,3,4,5,6]::smallint[]),
   level integer not null default 0 check (level >= 0),
   rating numeric(3, 2) not null default 0 check (rating between 0 and 5),
   review_count integer not null default 0 check (review_count >= 0),
@@ -36,6 +37,7 @@ alter table public.profiles add column if not exists contact_phone text not null
 alter table public.profiles add column if not exists city text not null default '';
 alter table public.profiles add column if not exists state text not null default '';
 alter table public.profiles add column if not exists profile_visible boolean not null default false;
+alter table public.profiles add column if not exists booking_weekdays smallint[] not null default '{0,1,2,3,4,5,6}'::smallint[] check (booking_weekdays <@ array[0,1,2,3,4,5,6]::smallint[]);
 alter table public.profiles add column if not exists avatar_position_x smallint not null default 50 check (avatar_position_x between 0 and 100);
 alter table public.profiles add column if not exists avatar_position_y smallint not null default 50 check (avatar_position_y between 0 and 100);
 create index if not exists profiles_public_search_idx on public.profiles (updated_at desc)
@@ -53,6 +55,14 @@ create table if not exists public.musician_profiles (
   average_rating numeric(3, 2) not null default 0 check (average_rating between 0 and 5),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
+);
+
+create table if not exists public.artist_availability (
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  availability_date date not null,
+  status text not null check (status in ('available', 'busy', 'not_booking')),
+  updated_at timestamptz not null default now(),
+  primary key (user_id, availability_date)
 );
 
 create table if not exists public.organizer_profiles (
@@ -119,6 +129,7 @@ create table if not exists public.reviews (
 );
 
 create index if not exists musician_profiles_genres_idx on public.musician_profiles using gin (musical_genres);
+create index if not exists artist_availability_date_status_idx on public.artist_availability (availability_date, status);
 create index if not exists events_organizer_idx on public.events (organizer_id);
 create index if not exists events_status_starts_at_idx on public.events (status, starts_at);
 create index if not exists proposals_event_idx on public.proposals (event_id);
@@ -134,11 +145,13 @@ alter table public.events enable row level security;
 alter table public.proposals enable row level security;
 alter table public.messages enable row level security;
 alter table public.reviews enable row level security;
+alter table public.artist_availability enable row level security;
 
 grant usage on schema public to anon, authenticated;
-grant select on public.profiles, public.musician_profiles, public.organizer_profiles, public.events, public.reviews to anon, authenticated;
+grant select on public.profiles, public.musician_profiles, public.organizer_profiles, public.events, public.reviews, public.artist_availability to anon, authenticated;
 grant insert on public.profiles to authenticated;
-grant update (full_name, real_name, stage_name, username, account_type, genre, bio, career, avatar_url, avatar_position_x, avatar_position_y, contact_email, contact_phone, city, state, profile_visible) on public.profiles to authenticated;
+grant update (full_name, real_name, stage_name, username, account_type, genre, bio, career, avatar_url, avatar_position_x, avatar_position_y, contact_email, contact_phone, city, state, profile_visible, booking_weekdays) on public.profiles to authenticated;
+grant insert, update, delete on public.artist_availability to authenticated;
 grant insert, update, delete on public.musician_profiles, public.organizer_profiles, public.events to authenticated;
 grant insert on public.proposals, public.messages, public.reviews to authenticated;
 grant update (status, negotiated_amount) on public.proposals to authenticated;
@@ -148,6 +161,17 @@ grant select on public.proposals, public.messages to authenticated;
 
 drop policy if exists "Profiles are publicly readable" on public.profiles;
 create policy "Profiles are publicly readable" on public.profiles for select using (true);
+
+drop policy if exists "Artist availability is publicly readable" on public.artist_availability;
+create policy "Artist availability is publicly readable" on public.artist_availability for select using (true);
+
+drop policy if exists "Artists manage their own availability" on public.artist_availability;
+create policy "Artists manage their own availability" on public.artist_availability for all to authenticated
+  using ((select auth.uid()) = user_id)
+  with check (
+    (select auth.uid()) = user_id
+    and exists (select 1 from public.profiles p where p.id = user_id and p.account_type = 'MUSICO')
+  );
 
 drop policy if exists "Users insert their own profile" on public.profiles;
 create policy "Users insert their own profile" on public.profiles for insert to authenticated

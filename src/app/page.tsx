@@ -10,14 +10,20 @@ import { SearchPanel } from "@/components/home/search-panel";
 import { featuredArtists } from "@/lib/artists";
 import type { Artist } from "@/lib/artists";
 import { MUSIC_GENRES, normalizeGenre } from "@/lib/genres";
+import { AvailabilityStatus, parseDateKey } from "@/lib/availability";
 import { isSupabaseConfigured } from "@/utils/supabase/config";
 import { createClient } from "@/utils/supabase/server";
 
 export const metadata: Metadata = { title: "Encontre seu palco" };
 
-export default async function HomePage({ searchParams }: { searchParams: Promise<{ busca?: string | string[]; generos?: string | string[] }> }) {
-  const { busca: rawQuery, generos: rawGenres } = await searchParams;
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ busca?: string | string[]; generos?: string | string[]; disponivel_de?: string | string[]; disponivel_ate?: string | string[] }> }) {
+  const { busca: rawQuery, generos: rawGenres, disponivel_de: rawStart, disponivel_ate: rawEnd } = await searchParams;
   const busca = Array.isArray(rawQuery) ? rawQuery[0] ?? "" : rawQuery ?? "";
+  const requestedStart = Array.isArray(rawStart) ? rawStart[0] ?? "" : rawStart ?? "";
+  const requestedEnd = Array.isArray(rawEnd) ? rawEnd[0] ?? "" : rawEnd ?? "";
+  const availabilityStart = parseDateKey(requestedStart) ? requestedStart : "";
+  const availabilityEnd = parseDateKey(requestedEnd) ? requestedEnd : "";
+  const hasValidAvailabilityRange = Boolean(availabilityStart && availabilityEnd && availabilityStart <= availabilityEnd);
   const requestedGenres = Array.isArray(rawGenres) ? rawGenres : rawGenres ? [rawGenres] : [];
   const availableGenres = new Set<string>(MUSIC_GENRES);
   const initialGenres = [...new Set(requestedGenres.flatMap((value) => value.split(",")).map((genre) => genre.trim()).filter((genre) => availableGenres.has(genre)))];
@@ -27,7 +33,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     const supabase = await createClient();
     const { data } = await supabase
       .from("profiles")
-      .select("id, real_name, stage_name, username, genre, rating, review_count, avatar_url, avatar_position_x, avatar_position_y, city, state")
+      .select("id, real_name, stage_name, username, genre, rating, review_count, avatar_url, avatar_position_x, avatar_position_y, booking_weekdays, city, state")
       .eq("account_type", "MUSICO")
       .eq("status", "ATIVO")
       .eq("profile_visible", true)
@@ -45,9 +51,21 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       imageUrl: artist.avatar_url || featuredArtists[0].imageUrl,
       avatarPositionX: artist.avatar_position_x,
       avatarPositionY: artist.avatar_position_y,
+      bookingWeekdays: Array.isArray(artist.booking_weekdays) ? artist.booking_weekdays.map(Number) : [0, 1, 2, 3, 4, 5, 6],
       city: artist.city,
       state: artist.state,
     }));
+  }
+
+  const availabilityByArtistDate = new Map<string, AvailabilityStatus>();
+  if (hasValidAvailabilityRange && isSupabaseConfigured() && artists.length > 0) {
+    const supabase = await createClient();
+    const { data: dateStatuses } = await supabase.from("artist_availability")
+      .select("user_id, availability_date, status")
+      .in("user_id", artists.map((artist) => artist.id))
+      .gte("availability_date", availabilityStart)
+      .lte("availability_date", availabilityEnd);
+    for (const status of dateStatuses ?? []) availabilityByArtistDate.set(`${status.user_id}:${status.availability_date}`, status.status as AvailabilityStatus);
   }
 
   const normalizedQuery = busca.trim().toLocaleLowerCase("pt-BR");
@@ -55,12 +73,28 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const matchingArtists = artists.filter((artist) => {
     const matchesText = !normalizedQuery || [artist.name, artist.realName, artist.username, artist.genre, artist.city, artist.state].some((value) => value?.toLocaleLowerCase("pt-BR").includes(normalizedQuery));
     const matchesGenre = selectedGenres.size === 0 || selectedGenres.has(normalizeGenre(artist.genre));
-    return matchesText && matchesGenre;
+    let matchesAvailability = true;
+    if (hasValidAvailabilityRange) {
+      const bookingWeekdays = new Set(artist.bookingWeekdays ?? [0, 1, 2, 3, 4, 5, 6]);
+      const startDate = parseDateKey(availabilityStart)!;
+      const endDate = parseDateKey(availabilityEnd)!;
+      for (const date = new Date(Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate())); date <= new Date(Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate())); date.setUTCDate(date.getUTCDate() + 1)) {
+        const dateString = date.toISOString().slice(0, 10);
+        const dateStatus = availabilityByArtistDate.get(`${artist.id}:${dateString}`);
+        if (dateStatus === "busy" || dateStatus === "not_booking" || (!dateStatus && !bookingWeekdays.has(date.getUTCDay()))) {
+          matchesAvailability = false;
+          break;
+        }
+      }
+    }
+    return matchesText && matchesGenre && matchesAvailability;
   });
   const noResultsMessage = busca
     ? `Nenhum perfil encontrado para “${busca}”.`
     : initialGenres.length > 0
       ? "Nenhum perfil encontrado com os gêneros selecionados."
+      : hasValidAvailabilityRange
+        ? "Nenhum artista disponível para o período selecionado."
       : "Nenhum artista encontrado no momento.";
 
   return (
@@ -79,7 +113,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
               </h1>
               <p className="mt-6 max-w-[565px] text-lg leading-relaxed text-white/60">Conecte-se com músicos, bandas e contratantes para o evento perfeito.</p>
             </div>
-            <SearchPanel key={`${busca}|${initialGenres.join(",")}`} initialQuery={busca} initialGenres={initialGenres} />
+            <SearchPanel key={`${busca}|${initialGenres.join(",")}|${availabilityStart}|${availabilityEnd}`} initialQuery={busca} initialGenres={initialGenres} initialAvailabilityStart={hasValidAvailabilityRange ? availabilityStart : ""} initialAvailabilityEnd={hasValidAvailabilityRange ? availabilityEnd : ""} />
           </div>
 
           <div className="relative order-1 lg:order-2">
