@@ -455,4 +455,40 @@ create policy "Users delete their own avatar images" on storage.objects
 for delete to authenticated
 using (bucket_id = 'avatars' and (storage.foldername(name))[1] = (select auth.uid())::text);
 
+-- Remove a conta autenticada. As chaves estrangeiras ON DELETE CASCADE removem
+-- o perfil e os registros associados em public (disponibilidade, eventos,
+-- propostas, mensagens e avaliações).
+drop function if exists public.delete_my_account();
+drop function if exists public.delete_my_account(boolean);
+create or replace function public.delete_my_account(p_preview boolean default false)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  current_user_id uuid := auth.uid();
+begin
+  if current_user_id is null then
+    raise exception using errcode = '28000', message = 'Authentication required';
+  end if;
+
+  if p_preview then
+    if not exists (select 1 from auth.users where id = current_user_id) then
+      raise exception using errcode = 'P0002', message = 'Account not found';
+    end if;
+    return true;
+  end if;
+
+  delete from auth.users where id = current_user_id;
+  if not found then
+    raise exception using errcode = 'P0002', message = 'Account not found';
+  end if;
+  return true;
+end;
+$$;
+
+revoke all on function public.delete_my_account(boolean) from public, anon;
+grant execute on function public.delete_my_account(boolean) to authenticated;
+
 commit;

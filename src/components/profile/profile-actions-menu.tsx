@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CalendarDays, LogOut, Menu, Pencil } from "lucide-react";
+import { CalendarDays, LogOut, Menu, Pencil, Settings } from "lucide-react";
 import { useToast } from "@/components/providers/app-providers";
 import { createClient } from "@/utils/supabase/client";
 
@@ -53,6 +53,7 @@ export function ProfileActionsMenu({ configured }: { configured: boolean }) {
     {open && <div role="menu" className="absolute right-0 top-full z-[60] mt-2 w-52 overflow-hidden rounded-xl border border-white/10 bg-[#222226] p-1.5 shadow-2xl shadow-black/50">
       <Link role="menuitem" href="/perfil/disponibilidade" onClick={() => setOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-white/80 transition hover:bg-white/5 hover:text-white"><CalendarDays className="size-4 text-[#D6A0FF]" />Disponibilidade</Link>
       <Link role="menuitem" href="/perfil/configuracoes" onClick={() => setOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-white/80 transition hover:bg-white/5 hover:text-white"><Pencil className="size-4 text-[#D6A0FF]" />Editar perfil</Link>
+      <Link role="menuitem" href="/perfil/conta" onClick={() => setOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-white/80 transition hover:bg-white/5 hover:text-white"><Settings className="size-4 text-[#D6A0FF]" />Configurações</Link>
       <button role="menuitem" type="button" onClick={signOut} disabled={loading} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-white/80 transition hover:bg-white/5 hover:text-rose-300 disabled:opacity-60"><LogOut className="size-4" />{loading ? "Saindo..." : "Sair"}</button>
     </div>}
   </div>;

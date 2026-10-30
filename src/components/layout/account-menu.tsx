@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { LogOut, Pencil, UserRound } from "lucide-react";
+import { LogOut, Pencil, Settings, UserRound } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { useToast } from "@/components/providers/app-providers";
 
@@ -55,6 +55,7 @@ export function AccountMenu({ account, configured, compact = false, dropUp = fal
     {open && <div role="menu" className={`absolute ${dropUp ? "bottom-full left-0 mb-2" : "right-0 top-full mt-2"} z-[60] w-52 overflow-hidden rounded-xl border border-white/10 bg-[#222226] p-1.5 shadow-2xl shadow-black/50`}>
       <Link role="menuitem" href="/perfil" onClick={() => setOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-white/80 transition hover:bg-white/5 hover:text-white"><UserRound className="size-4 text-[#D6A0FF]" />Perfil</Link>
       <Link role="menuitem" href="/perfil/configuracoes" onClick={() => setOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-white/80 transition hover:bg-white/5 hover:text-white"><Pencil className="size-4 text-[#D6A0FF]" />Editar perfil</Link>
+      <Link role="menuitem" href="/perfil/conta" onClick={() => setOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-white/80 transition hover:bg-white/5 hover:text-white"><Settings className="size-4 text-[#D6A0FF]" />Configurações</Link>
       <div className="my-1 border-t border-white/10" />
       <button role="menuitem" type="button" onClick={signOut} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-white/80 transition hover:bg-white/5 hover:text-rose-300"><LogOut className="size-4" />Sair</button>
     </div>}
