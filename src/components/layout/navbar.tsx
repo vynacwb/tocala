@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Bell } from "lucide-react";
 import { Brand } from "./brand";
 import { AccountMenu } from "./account-menu";
 import { isSupabaseConfigured } from "@/utils/supabase/config";
@@ -41,6 +42,7 @@ export async function Navbar() {
 
         <div className="hidden items-center gap-4 lg:flex">
           {!account && <Link href="/login?modo=cadastro" className="inline-flex h-11 items-center rounded-xl border border-white/20 px-5 text-sm font-semibold transition hover:border-[#BA3BE7] hover:bg-[#6C1EE7]/15 hover:text-[#D6A0FF]">Seja um Artista</Link>}
+          {account && <Link href="/notificacoes" className="flex size-11 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white/70 transition hover:border-[#BA3BE7] hover:bg-[#6C1EE7]/15 hover:text-[#D6A0FF]" aria-label="Notificações"><Bell className="size-5" strokeWidth={1.8} /></Link>}
           <div className="hidden lg:block"><AccountMenu account={account} configured={configured} /></div>
         </div>
       </div>
