@@ -6,6 +6,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { CircleDollarSign, House, Trophy, UserRound } from "lucide-react";
 import { NotificationBell } from "@/components/layout/notification-bell";
+import { readStoredDemoReviews, removeStoredDemoReviews } from "@/lib/demo-reviews";
 import { useToast } from "@/components/providers/app-providers";
 import { createClient } from "@/utils/supabase/client";
 import { isSupabaseConfigured } from "@/utils/supabase/config";
@@ -28,6 +29,18 @@ export function MobileNav() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!active || !user) return;
       const { data } = await supabase.from("profiles").select("avatar_url, avatar_position_x, avatar_position_y").eq("id", user.id).maybeSingle();
+      const pendingReviews = readStoredDemoReviews().filter((review) => /^[0-9a-f-]{36}$/i.test(review.artistId));
+      if (pendingReviews.length > 0) {
+        const { error } = await supabase.from("demo_reviews").upsert(pendingReviews.map((review) => ({
+          source_id: review.id,
+          artist_id: review.artistId,
+          author_id: user.id,
+          author_name: review.authorName,
+          body: review.comment,
+          rating: review.rating,
+        })), { onConflict: "source_id", ignoreDuplicates: true });
+        if (!error) removeStoredDemoReviews(pendingReviews.map((review) => review.id));
+      }
       if (active) setAccount({
         profileId: user.id,
         avatarUrl: data?.avatar_url ?? null,

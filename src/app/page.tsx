@@ -9,6 +9,7 @@ import { ArtistCard } from "@/components/home/artist-card";
 import { SearchPanel } from "@/components/home/search-panel";
 import { featuredArtists } from "@/lib/artists";
 import type { Artist } from "@/lib/artists";
+import type { DemoReview } from "@/lib/demo-reviews";
 import { MUSIC_GENRES, normalizeGenre } from "@/lib/genres";
 import { AvailabilityStatus, parseDateKey } from "@/lib/availability";
 import { isSupabaseConfigured } from "@/utils/supabase/config";
@@ -28,6 +29,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const availableGenres = new Set<string>(MUSIC_GENRES);
   const initialGenres = [...new Set(requestedGenres.flatMap((value) => value.split(",")).map((genre) => genre.trim()).filter((genre) => availableGenres.has(genre)))];
   let artists: Artist[] = featuredArtists;
+  let sharedDemoReviews: DemoReview[] = [];
 
   if (isSupabaseConfigured()) {
     const supabase = await createClient();
@@ -55,6 +57,22 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       city: artist.city,
       state: artist.state,
     }));
+
+    if (artists.length > 0) {
+      const { data: demoRows } = await supabase.from("demo_reviews")
+        .select("id, artist_id, author_name, body, rating, created_at")
+        .in("artist_id", artists.map((artist) => artist.id))
+        .order("created_at", { ascending: false });
+      sharedDemoReviews = (demoRows ?? []).map((review) => ({
+        id: review.id,
+        artistId: review.artist_id,
+        authorName: review.author_name,
+        rating: review.rating,
+        comment: review.body,
+        createdAt: review.created_at,
+      }));
+      artists = artists.map((artist) => ({ ...artist, demoReviews: sharedDemoReviews.filter((review) => review.artistId === artist.id) }));
+    }
   }
 
   const availabilityByArtistDate = new Map<string, AvailabilityStatus>();

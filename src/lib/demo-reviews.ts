@@ -31,6 +31,14 @@ export function addDemoReview(review: Omit<DemoReview, "id" | "createdAt">) {
   window.dispatchEvent(new Event(DEMO_REVIEWS_CHANGE_EVENT));
 }
 
+export function removeStoredDemoReviews(ids: string[]) {
+  if (typeof window === "undefined" || ids.length === 0) return;
+  const removed = new Set(ids);
+  const remaining = readStoredDemoReviews().filter((review) => !removed.has(review.id));
+  window.localStorage.setItem(DEMO_REVIEWS_STORAGE_KEY, JSON.stringify(remaining));
+  window.dispatchEvent(new Event(DEMO_REVIEWS_CHANGE_EVENT));
+}
+
 export function getDemoReviews(artistId: string, stored = readStoredDemoReviews()) {
   return [...DEMO_REVIEWS.filter((review) => review.artistId === artistId), ...stored.filter((review) => review.artistId === artistId)];
 }

@@ -128,6 +128,19 @@ create table if not exists public.reviews (
   constraint reviews_event_author_artist_unique unique (event_id, author_id, artist_id)
 );
 
+-- Avaliações exclusivamente demonstrativas, compartilhadas e separadas das avaliações reais.
+create table if not exists public.demo_reviews (
+  id uuid primary key default gen_random_uuid(),
+  source_id text unique,
+  artist_id uuid not null references public.profiles(id) on delete cascade,
+  author_id uuid not null references public.profiles(id) on delete cascade,
+  author_name text not null default 'Contratante fictício',
+  body text not null default '' check (char_length(body) <= 800),
+  rating integer not null check (rating between 1 and 5),
+  created_at timestamptz not null default now(),
+  constraint demo_reviews_author_artist_differ check (author_id <> artist_id)
+);
+
 create index if not exists musician_profiles_genres_idx on public.musician_profiles using gin (musical_genres);
 create index if not exists artist_availability_date_status_idx on public.artist_availability (availability_date, status);
 create index if not exists events_organizer_idx on public.events (organizer_id);
@@ -137,6 +150,7 @@ create index if not exists proposals_musician_idx on public.proposals (musician_
 create index if not exists messages_proposal_sent_at_idx on public.messages (proposal_id, sent_at);
 create index if not exists reviews_artist_created_at_idx on public.reviews (artist_id, created_at desc);
 create index if not exists reviews_event_idx on public.reviews (event_id);
+create index if not exists demo_reviews_artist_created_at_idx on public.demo_reviews (artist_id, created_at desc);
 
 alter table public.profiles enable row level security;
 alter table public.musician_profiles enable row level security;
@@ -145,15 +159,16 @@ alter table public.events enable row level security;
 alter table public.proposals enable row level security;
 alter table public.messages enable row level security;
 alter table public.reviews enable row level security;
+alter table public.demo_reviews enable row level security;
 alter table public.artist_availability enable row level security;
 
 grant usage on schema public to anon, authenticated;
-grant select on public.profiles, public.musician_profiles, public.organizer_profiles, public.events, public.reviews, public.artist_availability to anon, authenticated;
+grant select on public.profiles, public.musician_profiles, public.organizer_profiles, public.events, public.reviews, public.demo_reviews, public.artist_availability to anon, authenticated;
 grant insert on public.profiles to authenticated;
 grant update (full_name, real_name, stage_name, username, account_type, genre, bio, career, avatar_url, avatar_position_x, avatar_position_y, contact_email, contact_phone, city, state, profile_visible, booking_weekdays) on public.profiles to authenticated;
 grant insert, update, delete on public.artist_availability to authenticated;
 grant insert, update, delete on public.musician_profiles, public.organizer_profiles, public.events to authenticated;
-grant insert on public.proposals, public.messages, public.reviews to authenticated;
+grant insert on public.proposals, public.messages, public.reviews, public.demo_reviews to authenticated;
 grant update (status, negotiated_amount) on public.proposals to authenticated;
 grant update (is_read) on public.messages to authenticated;
 grant update (body, rating), delete on public.reviews to authenticated;
@@ -322,6 +337,20 @@ create policy "Authors update their reviews" on public.reviews for update to aut
 drop policy if exists "Authors delete their reviews" on public.reviews;
 create policy "Authors delete their reviews" on public.reviews for delete to authenticated
   using (author_id = (select auth.uid()));
+
+drop policy if exists "Demo reviews are publicly readable" on public.demo_reviews;
+create policy "Demo reviews are publicly readable" on public.demo_reviews for select using (true);
+
+drop policy if exists "Authenticated users add demo reviews" on public.demo_reviews;
+create policy "Authenticated users add demo reviews" on public.demo_reviews for insert to authenticated
+  with check (
+    author_id = (select auth.uid())
+    and artist_id <> (select auth.uid())
+    and exists (
+      select 1 from public.profiles p
+      where p.id = artist_id and p.account_type = 'MUSICO' and p.profile_visible = true and p.status = 'ATIVO'
+    )
+  );
 
 create or replace function public.set_updated_at()
 returns trigger

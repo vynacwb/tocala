@@ -4,7 +4,7 @@ import { useSyncExternalStore } from "react";
 import Image from "next/image";
 import { Star } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { combineRating, DEMO_REVIEWS_CHANGE_EVENT, getDemoReviews } from "@/lib/demo-reviews";
+import { combineRating, DEMO_REVIEWS_CHANGE_EVENT, getDemoReviews, type DemoReview } from "@/lib/demo-reviews";
 
 type Review = { id: string; author_name: string; author_avatar_url: string; body: string; rating: number };
 const subscribe = (callback: () => void) => {
@@ -15,17 +15,26 @@ const subscribe = (callback: () => void) => {
 const snapshot = () => window.localStorage.getItem("tocala-demo-contract-reviews") || "[]";
 const serverSnapshot = () => "[]";
 
-export function ProfileRatingSummary({ artistId, rating, count }: { artistId: string; rating: number; count: number }) {
-  useSyncExternalStore(subscribe, snapshot, serverSnapshot);
-  const aggregate = combineRating(rating, count, getDemoReviews(artistId));
+export function ProfileRatingSummary({ artistId, rating, count, sharedReviews = [], useLocalDemoReviews = false }: { artistId: string; rating: number; count: number; sharedReviews?: DemoReview[]; useLocalDemoReviews?: boolean }) {
+  const storedSnapshot = useSyncExternalStore(subscribe, snapshot, serverSnapshot);
+  const localReviews = useLocalDemoReviews ? getDemoReviews(artistId, parseStored(storedSnapshot)) : [];
+  const aggregate = combineRating(rating, count, [...sharedReviews, ...localReviews]);
   return aggregate.count ? <div className="flex items-center gap-1 text-[#FBBF24]" role="img" aria-label={`Avaliação ${aggregate.rating.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} de 5 estrelas`}>
     {Array.from({ length: 5 }, (_, i) => <Star key={i} className={`size-[1em] ${i < Math.round(aggregate.rating) ? "fill-current" : "fill-transparent"}`} />)}
   </div> : <span className="text-base font-semibold text-white/55" aria-label="Sem avaliações">★ --</span>;
 }
 
-export function ProfileReviews({ artistId, baseRating, baseCount, reviews }: { artistId: string; baseRating: number; baseCount: number; reviews: Review[] }) {
-  useSyncExternalStore(subscribe, snapshot, serverSnapshot);
-  const demos = getDemoReviews(artistId);
+function parseStored(value: string): DemoReview[] {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((item): item is DemoReview => Boolean(item && typeof item === "object" && typeof item.artistId === "string" && Number.isFinite(item.rating))) : [];
+  } catch { return []; }
+}
+
+export function ProfileReviews({ artistId, baseRating, baseCount, reviews, sharedReviews = [], useLocalDemoReviews = false }: { artistId: string; baseRating: number; baseCount: number; reviews: Review[]; sharedReviews?: DemoReview[]; useLocalDemoReviews?: boolean }) {
+  const storedSnapshot = useSyncExternalStore(subscribe, snapshot, serverSnapshot);
+  const localReviews = useLocalDemoReviews ? getDemoReviews(artistId, parseStored(storedSnapshot)) : [];
+  const demos = [...sharedReviews, ...localReviews];
   const aggregate = combineRating(baseRating, baseCount, demos);
   const merged = [
     ...demos.map((review) => ({ id: review.id, author_name: review.authorName, author_avatar_url: "", body: review.comment, rating: review.rating })),

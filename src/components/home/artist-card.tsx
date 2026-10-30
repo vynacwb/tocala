@@ -17,7 +17,8 @@ const serverSnapshot = () => "[]";
 
 export function ArtistCard({ artist }: { artist: Artist }) {
   useSyncExternalStore(subscribe, snapshot, serverSnapshot);
-  const { rating, count } = combineRating(artist.rating, artist.reviews, getDemoReviews(artist.id));
+  const localReviews = artist.demoReviews === undefined ? getDemoReviews(artist.id) : [];
+  const { rating, count } = combineRating(artist.rating, artist.reviews, [...(artist.demoReviews ?? []), ...localReviews]);
   return (
     <article className="group overflow-hidden rounded-2xl border border-white/10 bg-[#1A1A1A] shadow-2xl shadow-black/40 transition duration-300 hover:-translate-y-1 hover:border-[#BA3BE7]/60">
       <div className="relative aspect-square overflow-hidden bg-[#2E203B]">

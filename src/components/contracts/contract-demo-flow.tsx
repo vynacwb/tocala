@@ -2,8 +2,10 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { addDemoReview } from "@/lib/demo-reviews";
+import { addDemoReview, readStoredDemoReviews, removeStoredDemoReviews } from "@/lib/demo-reviews";
 import { addUserNotification } from "@/lib/user-notifications";
+import { isSupabaseConfigured } from "@/utils/supabase/config";
+import { createClient } from "@/utils/supabase/client";
 import Image from "next/image";
 import { ArrowLeft, ArrowRight, CalendarDays, Check, CircleAlert, Clock3, MapPin, Star } from "lucide-react";
 import { Brand } from "@/components/layout/brand";
@@ -216,9 +218,29 @@ export function ContractDemoFlow({ artist }: { artist: Artist }) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function saveDemoReview() {
+  async function saveDemoReview() {
     try {
-      addDemoReview({ artistId: artist.id, authorName: "Contratante fictício", rating: reviewRating, comment: reviewComment.trim() });
+      if (isSupabaseConfigured()) {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          toast("Entre na sua conta para compartilhar a avaliação com os outros participantes.", "error");
+          return;
+        }
+        const oldReviews = readStoredDemoReviews().filter((review) => review.artistId === artist.id && /^[0-9a-f-]{36}$/i.test(review.artistId));
+        const submissions = [
+          ...oldReviews.map((review) => ({ source_id: review.id, artist_id: review.artistId, author_id: user.id, author_name: review.authorName, body: review.comment, rating: review.rating })),
+          { source_id: `contract-${crypto.randomUUID()}`, artist_id: artist.id, author_id: user.id, author_name: "Contratante fictício", body: reviewComment.trim(), rating: reviewRating },
+        ];
+        const { error } = await supabase.from("demo_reviews").upsert(submissions, { onConflict: "source_id", ignoreDuplicates: true });
+        if (error) {
+          toast("Não foi possível compartilhar a avaliação. Aplique a atualização do schema do Supabase e tente novamente.", "error");
+          return;
+        }
+        removeStoredDemoReviews(oldReviews.map((review) => review.id));
+      } else {
+        addDemoReview({ artistId: artist.id, authorName: "Contratante fictício", rating: reviewRating, comment: reviewComment.trim() });
+      }
       addUserNotification(artist.id, { title: "Você recebeu uma nova avaliação", detail: `Uma contratação de demonstração avaliou seu perfil com ${reviewRating} ${reviewRating === 1 ? "estrela" : "estrelas"}.` });
     } catch {
       toast("Não foi possível mostrar a avaliação simulada neste navegador.", "error");

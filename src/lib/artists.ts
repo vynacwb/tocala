@@ -1,3 +1,5 @@
+import type { DemoReview } from "@/lib/demo-reviews";
+
 export type Artist = {
   id: string;
   name: string;
@@ -12,6 +14,7 @@ export type Artist = {
   avatarPositionX?: number;
   avatarPositionY?: number;
   bookingWeekdays?: number[];
+  demoReviews?: DemoReview[];
 };
 
 export const featuredArtists: Artist[] = [
