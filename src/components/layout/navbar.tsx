@@ -26,7 +26,6 @@ export async function Navbar() {
       <div className="mx-auto max-w-[1200px] px-5 pb-4 pt-[calc(env(safe-area-inset-top)+18px)] lg:flex lg:h-20 lg:items-center lg:justify-between lg:gap-8 lg:px-6 lg:py-0">
         <div className="flex items-center justify-between">
           <Brand href="/#explorar" />
-          <div className="lg:hidden"><AccountMenu account={account} configured={configured} compact /></div>
         </div>
 
         <div className="mt-4 lg:hidden">

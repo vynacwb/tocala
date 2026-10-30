@@ -20,6 +20,10 @@ export function AuthForm({ configured }: { configured: boolean }) {
   const { toast } = useToast();
 
   const isRegistering = mode === "register";
+  const requestedDestination = searchParams.get("redirectTo");
+  const postLoginDestination = requestedDestination?.startsWith("/") && !requestedDestination.startsWith("//")
+    ? requestedDestination
+    : "/";
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -45,7 +49,7 @@ export function AuthForm({ configured }: { configured: boolean }) {
     const supabase = createClient();
 
     if (isRegistering) {
-      const callbackUrl = `${window.location.origin}/auth/callback?next=/perfil/configuracoes`;
+      const callbackUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent("/perfil/configuracoes")}`;
       const { data: result, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -73,7 +77,7 @@ export function AuthForm({ configured }: { configured: boolean }) {
       return;
     }
 
-    router.push("/perfil/configuracoes");
+    router.push(postLoginDestination);
     router.refresh();
   }
 

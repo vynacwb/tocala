@@ -36,7 +36,8 @@ export async function updateSession(request: NextRequest) {
 
   if (isAuthRoute && user) {
     const url = request.nextUrl.clone();
-    url.pathname = "/perfil/configuracoes";
+    const requestedDestination = request.nextUrl.searchParams.get("redirectTo");
+    url.pathname = requestedDestination?.startsWith("/") && !requestedDestination.startsWith("//") ? requestedDestination : "/";
     url.search = "";
     return NextResponse.redirect(url);
   }
