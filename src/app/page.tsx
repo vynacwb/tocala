@@ -114,12 +114,13 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       : hasValidAvailabilityRange
         ? "Nenhum artista disponível para o período selecionado."
       : "Nenhum artista encontrado no momento.";
+  const isSearchResults = Boolean(busca.trim() || initialGenres.length > 0 || hasValidAvailabilityRange);
 
   return (
     <div className="mx-auto min-h-dvh max-w-[400px] bg-[#1A1A1A] shadow-2xl shadow-black/40 lg:max-w-none lg:bg-[#101010] lg:shadow-none">
       <Navbar />
       <main className="mx-auto max-w-[400px] px-5 pt-[calc(env(safe-area-inset-top)+147px)] lg:max-w-[1200px] lg:px-6 lg:pt-32">
-        <section id="explorar" className="flex scroll-mt-28 flex-col lg:grid lg:grid-cols-[3fr_2fr] lg:items-center lg:gap-14 lg:pb-16">
+        {!isSearchResults ? <section id="explorar" className="flex scroll-mt-28 flex-col lg:grid lg:grid-cols-[3fr_2fr] lg:items-center lg:gap-14 lg:pb-16">
           <div className="order-2 lg:order-1">
             <div className="hidden lg:block">
               <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#E4C9FF] backdrop-blur-sm">
@@ -152,15 +153,17 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
               </div>
             </div>
           </div>
-        </section>
+        </section> : <section className="scroll-mt-28">
+          <SearchPanel key={`resultados|${busca}|${initialGenres.join(",")}|${availabilityStart}|${availabilityEnd}`} variant="results" initialQuery={busca} initialGenres={initialGenres} initialAvailabilityStart={hasValidAvailabilityRange ? availabilityStart : ""} initialAvailabilityEnd={hasValidAvailabilityRange ? availabilityEnd : ""} />
+        </section>}
 
-        <section id="destaques" className="mt-16 scroll-mt-28 lg:mt-16" aria-labelledby="destaques-title">
+        <section id="destaques" className={`${isSearchResults ? "mt-7" : "mt-16 lg:mt-16"} scroll-mt-28`} aria-labelledby="destaques-title">
           <div className="mb-6 flex items-end justify-between gap-4 lg:mb-8">
             <div>
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#BA3BE7] lg:text-xs">Descubra seu próximo som</p>
-              <h2 id="destaques-title" className="text-[23px] font-bold tracking-[-0.035em] lg:text-3xl">Talentos em Destaque</h2>
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#BA3BE7] lg:text-xs">{isSearchResults ? "Perfis compatíveis com seus filtros" : "Descubra seu próximo som"}</p>
+              <h2 id="destaques-title" className="text-[23px] font-bold tracking-[-0.035em] lg:text-3xl">{isSearchResults ? "Resultados da busca" : "Talentos em Destaque"}</h2>
             </div>
-            <Link href="#busca" className="shrink-0 text-xs font-semibold text-[#D6A0FF] transition hover:text-white lg:text-sm">Ver todos →</Link>
+            {isSearchResults ? <span className="shrink-0 text-xs text-white/50">{matchingArtists.length} {matchingArtists.length === 1 ? "perfil" : "perfis"}</span> : <Link href="#busca" className="shrink-0 text-xs font-semibold text-[#D6A0FF] transition hover:text-white lg:text-sm">Ver todos →</Link>}
           </div>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-6">
             {matchingArtists.map((artist) => <ArtistCard key={artist.id} artist={artist} />)}

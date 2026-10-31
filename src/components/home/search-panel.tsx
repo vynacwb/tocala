@@ -10,7 +10,7 @@ import { MonthCalendar } from "@/components/calendar/month-calendar";
 
 const filters = ["Gênero", "Instrumento", "Disponibilidade"];
 
-export function SearchPanel({ initialQuery = "", initialGenres = [], initialAvailabilityStart = "", initialAvailabilityEnd = "" }: { initialQuery?: string; initialGenres?: string[]; initialAvailabilityStart?: string; initialAvailabilityEnd?: string }) {
+export function SearchPanel({ initialQuery = "", initialGenres = [], initialAvailabilityStart = "", initialAvailabilityEnd = "", variant = "landing" }: { initialQuery?: string; initialGenres?: string[]; initialAvailabilityStart?: string; initialAvailabilityEnd?: string; variant?: "landing" | "results" }) {
   const { toast } = useToast();
   const router = useRouter();
   const [query, setQuery] = useState(initialQuery);
@@ -103,17 +103,30 @@ export function SearchPanel({ initialQuery = "", initialGenres = [], initialAvai
     setGenrePanelOpen(false);
   }
 
+  function removeGenre(genre: string) {
+    const next = selectedGenres.filter((item) => item !== genre);
+    setSelectedGenres(next);
+    setDraftGenres(next);
+    const params = new URLSearchParams(window.location.search);
+    if (query.trim()) params.set("busca", query.trim());
+    else params.delete("busca");
+    if (next.length) params.set("generos", next.join(","));
+    else params.delete("generos");
+    const search = params.toString();
+    router.push(`${search ? `/?${search}` : "/"}#destaques`);
+  }
+
   return (
-    <div id="busca" className="mt-9 scroll-mt-28 lg:mt-10">
-      <h2 className="mb-3 text-lg font-semibold tracking-[-0.025em] lg:mb-4 lg:text-xl">Comece sua busca</h2>
+    <div id="busca" className={`scroll-mt-28 ${variant === "results" ? "" : "mt-9 lg:mt-10"}`}>
+      {variant === "landing" && <h2 className="mb-3 text-lg font-semibold tracking-[-0.025em] lg:mb-4 lg:text-xl">Comece sua busca</h2>}
       <form
         action="/#destaques"
         method="get"
-        className="flex h-14 items-center gap-3 rounded-xl border border-white/10 bg-[#F7F5FA] px-3 shadow-2xl shadow-black/40 focus-within:ring-2 focus-within:ring-[#BA3BE7] lg:h-16 lg:gap-4 lg:px-4"
+        className={`flex h-14 items-center gap-3 rounded-xl border border-white/10 px-3 shadow-2xl focus-within:ring-2 focus-within:ring-[#BA3BE7] lg:h-16 lg:gap-4 lg:px-4 ${variant === "results" ? "bg-[#222226]" : "bg-[#F7F5FA] shadow-black/40"}`}
       >
-        <Search className="size-5 shrink-0 text-[#6C1EE7] lg:size-6" strokeWidth={2} aria-hidden="true" />
+        <Search className={`size-5 shrink-0 lg:size-6 ${variant === "results" ? "text-[#D6A0FF]" : "text-[#6C1EE7]"}`} strokeWidth={2} aria-hidden="true" />
         <label htmlFor="busca-talentos" className="sr-only">O que ou quem você quer procurar?</label>
-        <input id="busca-talentos" name="busca" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="O que/quem você quer procurar?" className="min-w-0 flex-1 bg-transparent text-[13px] text-[#202020] outline-none placeholder:text-[#77717E] lg:text-base" />
+        <input id="busca-talentos" name="busca" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="O que/quem você quer procurar?" className={`min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-[#77717E] lg:text-base ${variant === "results" ? "text-white placeholder:text-white/40" : "text-[#202020]"}`} />
         <input type="hidden" name="generos" value={selectedGenres.join(",")} />
         <input type="hidden" name="disponivel_de" value={availabilityStart} />
         <input type="hidden" name="disponivel_ate" value={availabilityEnd} />
@@ -122,6 +135,11 @@ export function SearchPanel({ initialQuery = "", initialGenres = [], initialAvai
           <ArrowRight className="size-[18px] lg:hidden" aria-hidden="true" />
         </button>
       </form>
+
+      {variant === "results" && (selectedGenres.length > 0 || (availabilityStart && availabilityEnd)) && <div className="mt-3 flex flex-wrap gap-2" aria-label="Filtros ativos">
+        {selectedGenres.map((genre) => <span key={genre} className="inline-flex items-center gap-1.5 rounded-full border border-[#BA3BE7]/35 bg-[#6C1EE7]/20 px-3 py-1.5 text-xs font-medium text-[#E4C9FF]">Gênero: {genre}<button type="button" onClick={() => removeGenre(genre)} className="rounded-full text-[#E4C9FF]/65 transition hover:text-white" aria-label={`Remover filtro ${genre}`}><X className="size-3.5" /></button></span>)}
+        {availabilityStart && availabilityEnd && <span className="inline-flex items-center gap-1.5 rounded-full border border-[#BA3BE7]/35 bg-[#6C1EE7]/20 px-3 py-1.5 text-xs font-medium text-[#E4C9FF]">Disponibilidade: {formatDateLabel(availabilityStart)} – {formatDateLabel(availabilityEnd)}<button type="button" onClick={clearAvailability} className="rounded-full text-[#E4C9FF]/65 transition hover:text-white" aria-label="Remover filtro de disponibilidade"><X className="size-3.5" /></button></span>}
+      </div>}
 
       <div className="hide-scrollbar -mx-5 mt-4 flex gap-2.5 overflow-x-auto px-5 pb-2 lg:mx-0 lg:mt-5 lg:flex-wrap lg:gap-3 lg:px-0" aria-label="Filtros de busca">
         {filters.map((filter) => (
