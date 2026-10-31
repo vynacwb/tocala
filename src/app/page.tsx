@@ -11,14 +11,15 @@ import { featuredArtists } from "@/lib/artists";
 import type { Artist } from "@/lib/artists";
 import type { DemoReview } from "@/lib/demo-reviews";
 import { MUSIC_GENRES, normalizeGenre } from "@/lib/genres";
+import { MUSIC_INSTRUMENTS, normalizeInstrument } from "@/lib/instruments";
 import { AvailabilityStatus, parseDateKey } from "@/lib/availability";
 import { isSupabaseConfigured } from "@/utils/supabase/config";
 import { createClient } from "@/utils/supabase/server";
 
 export const metadata: Metadata = { title: "Encontre seu palco" };
 
-export default async function HomePage({ searchParams }: { searchParams: Promise<{ busca?: string | string[]; generos?: string | string[]; disponivel_de?: string | string[]; disponivel_ate?: string | string[] }> }) {
-  const { busca: rawQuery, generos: rawGenres, disponivel_de: rawStart, disponivel_ate: rawEnd } = await searchParams;
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ busca?: string | string[]; generos?: string | string[]; instrumentos?: string | string[]; disponivel_de?: string | string[]; disponivel_ate?: string | string[] }> }) {
+  const { busca: rawQuery, generos: rawGenres, instrumentos: rawInstruments, disponivel_de: rawStart, disponivel_ate: rawEnd } = await searchParams;
   const busca = Array.isArray(rawQuery) ? rawQuery[0] ?? "" : rawQuery ?? "";
   const requestedStart = Array.isArray(rawStart) ? rawStart[0] ?? "" : rawStart ?? "";
   const requestedEnd = Array.isArray(rawEnd) ? rawEnd[0] ?? "" : rawEnd ?? "";
@@ -28,6 +29,9 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const requestedGenres = Array.isArray(rawGenres) ? rawGenres : rawGenres ? [rawGenres] : [];
   const availableGenres = new Set<string>(MUSIC_GENRES);
   const initialGenres = [...new Set(requestedGenres.flatMap((value) => value.split(",")).map((genre) => genre.trim()).filter((genre) => availableGenres.has(genre)))];
+  const requestedInstruments = Array.isArray(rawInstruments) ? rawInstruments : rawInstruments ? [rawInstruments] : [];
+  const availableInstruments = new Set<string>(MUSIC_INSTRUMENTS);
+  let initialInstruments: string[] = [];
   let artists: Artist[] = featuredArtists;
   let sharedDemoReviews: DemoReview[] = [];
 
@@ -35,7 +39,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     const supabase = await createClient();
     const { data } = await supabase
       .from("profiles")
-      .select("id, real_name, stage_name, username, genre, rating, review_count, avatar_url, avatar_position_x, avatar_position_y, booking_weekdays, city, state")
+      .select("id, real_name, stage_name, username, genre, instruments, rating, review_count, avatar_url, avatar_position_x, avatar_position_y, booking_weekdays, city, state")
       .eq("account_type", "MUSICO")
       .eq("status", "ATIVO")
       .eq("profile_visible", true)
@@ -48,6 +52,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       realName: artist.real_name,
       username: artist.username,
       genre: artist.genre || "Artista",
+      instruments: Array.isArray(artist.instruments) ? artist.instruments : [],
       rating: Number(artist.rating),
       reviews: artist.review_count,
       imageUrl: artist.avatar_url || featuredArtists[0].imageUrl,
@@ -75,6 +80,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     }
   }
 
+  initialInstruments = [...new Set(requestedInstruments.flatMap((value) => value.split(",")).map((instrument) => instrument.trim()).filter((instrument) => availableInstruments.has(instrument)))];
+
   const availabilityByArtistDate = new Map<string, AvailabilityStatus>();
   if (hasValidAvailabilityRange && isSupabaseConfigured() && artists.length > 0) {
     const supabase = await createClient();
@@ -88,9 +95,11 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
   const normalizedQuery = busca.trim().toLocaleLowerCase("pt-BR");
   const selectedGenres = new Set(initialGenres.map(normalizeGenre));
+  const selectedInstruments = new Set(initialInstruments.map(normalizeInstrument));
   const matchingArtists = artists.filter((artist) => {
     const matchesText = !normalizedQuery || [artist.name, artist.realName, artist.username, artist.genre, artist.city, artist.state].some((value) => value?.toLocaleLowerCase("pt-BR").includes(normalizedQuery));
     const matchesGenre = selectedGenres.size === 0 || selectedGenres.has(normalizeGenre(artist.genre));
+    const matchesInstrument = selectedInstruments.size === 0 || (artist.instruments ?? []).some((instrument) => selectedInstruments.has(normalizeInstrument(instrument)));
     let matchesAvailability = true;
     if (hasValidAvailabilityRange) {
       const bookingWeekdays = new Set(artist.bookingWeekdays ?? [0, 1, 2, 3, 4, 5, 6]);
@@ -105,16 +114,18 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         }
       }
     }
-    return matchesText && matchesGenre && matchesAvailability;
+    return matchesText && matchesGenre && matchesInstrument && matchesAvailability;
   });
   const noResultsMessage = busca
     ? `Nenhum perfil encontrado para “${busca}”.`
     : initialGenres.length > 0
       ? "Nenhum perfil encontrado com os gêneros selecionados."
+      : initialInstruments.length > 0
+        ? "Nenhum perfil encontrado com os instrumentos selecionados."
       : hasValidAvailabilityRange
         ? "Nenhum artista disponível para o período selecionado."
       : "Nenhum artista encontrado no momento.";
-  const isSearchResults = Boolean(busca.trim() || initialGenres.length > 0 || hasValidAvailabilityRange);
+  const isSearchResults = Boolean(busca.trim() || initialGenres.length > 0 || initialInstruments.length > 0 || hasValidAvailabilityRange);
 
   return (
     <div className="mx-auto min-h-dvh max-w-[400px] bg-[#1A1A1A] shadow-2xl shadow-black/40 lg:max-w-none lg:bg-[#101010] lg:shadow-none">
@@ -132,7 +143,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
               </h1>
               <p className="mt-6 max-w-[565px] text-lg leading-relaxed text-white/60">Conecte-se com músicos, bandas e contratantes para o evento perfeito.</p>
             </div>
-            <SearchPanel key={`${busca}|${initialGenres.join(",")}|${availabilityStart}|${availabilityEnd}`} initialQuery={busca} initialGenres={initialGenres} initialAvailabilityStart={hasValidAvailabilityRange ? availabilityStart : ""} initialAvailabilityEnd={hasValidAvailabilityRange ? availabilityEnd : ""} />
+            <SearchPanel key={`${busca}|${initialGenres.join(",")}|${initialInstruments.join(",")}|${availabilityStart}|${availabilityEnd}`} initialQuery={busca} initialGenres={initialGenres} initialInstruments={initialInstruments} initialAvailabilityStart={hasValidAvailabilityRange ? availabilityStart : ""} initialAvailabilityEnd={hasValidAvailabilityRange ? availabilityEnd : ""} />
           </div>
 
           <div className="relative order-1 lg:order-2">
@@ -154,7 +165,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             </div>
           </div>
         </section> : <section className="scroll-mt-28">
-          <SearchPanel key={`resultados|${busca}|${initialGenres.join(",")}|${availabilityStart}|${availabilityEnd}`} variant="results" initialQuery={busca} initialGenres={initialGenres} initialAvailabilityStart={hasValidAvailabilityRange ? availabilityStart : ""} initialAvailabilityEnd={hasValidAvailabilityRange ? availabilityEnd : ""} />
+          <SearchPanel key={`resultados|${busca}|${initialGenres.join(",")}|${initialInstruments.join(",")}|${availabilityStart}|${availabilityEnd}`} variant="results" initialQuery={busca} initialGenres={initialGenres} initialInstruments={initialInstruments} initialAvailabilityStart={hasValidAvailabilityRange ? availabilityStart : ""} initialAvailabilityEnd={hasValidAvailabilityRange ? availabilityEnd : ""} />
         </section>}
 
         <section id="destaques" className={`${isSearchResults ? "mt-7" : "mt-16 lg:mt-16"} scroll-mt-28`} aria-labelledby="destaques-title">

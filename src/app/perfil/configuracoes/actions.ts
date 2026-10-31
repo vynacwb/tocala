@@ -3,7 +3,10 @@
 import { revalidatePath } from "next/cache";
 import type { CareerExperience, ProfileSettingsActionState } from "@/lib/profile-settings";
 import { serializeCareer } from "@/lib/profile-settings";
+import { MUSIC_INSTRUMENTS } from "@/lib/instruments";
 import { createClient } from "@/utils/supabase/server";
+
+const allowedInstruments = new Set<string>(MUSIC_INSTRUMENTS);
 
 function isWebUrl(value: string) {
   if (!value) return true;
@@ -38,6 +41,7 @@ export async function saveProfileSettings(
   const city = String(formData.get("city") ?? "").trim();
   const state = String(formData.get("state") ?? "").trim().toUpperCase();
   const genre = String(formData.get("genre") ?? "").trim();
+  const instruments = [...new Set(formData.getAll("instruments").map((value) => String(value).trim()))];
   const bio = String(formData.get("bio") ?? "").trim();
   const avatarUrl = String(formData.get("avatarUrl") ?? "").trim();
   const avatarPositionX = Number(formData.get("avatarPositionX") ?? 50);
@@ -50,6 +54,7 @@ export async function saveProfileSettings(
   if (contactPhone.length > 30 || (contactPhone && contactPhone.replace(/\D/g, "").length < 8)) return errorState("Informe um WhatsApp válido com pelo menos 8 dígitos.");
   if (city.length > 100 || (state && !/^[A-Z]{2}$/.test(state)) || (Boolean(city) !== Boolean(state))) return errorState("Preencha cidade e sigla do estado juntos (por exemplo, São Paulo e SP).");
   if (!genre || genre.length > 60) return errorState("Selecione um estilo musical válido.");
+  if (instruments.length > MUSIC_INSTRUMENTS.length || instruments.some((instrument) => !allowedInstruments.has(instrument))) return errorState("Selecione instrumentos da lista disponível.");
   if (bio.length > 20000) return errorState("O texto sobre o artista ultrapassou 20.000 caracteres.");
   if (!isWebUrl(avatarUrl)) return errorState("Informe uma URL válida para a foto de perfil.");
   if (![avatarPositionX, avatarPositionY].every((value) => Number.isInteger(value) && value >= 0 && value <= 100)) return errorState("Ajuste o enquadramento da foto entre 0 e 100.");
@@ -97,6 +102,7 @@ export async function saveProfileSettings(
       state,
       profile_visible: true,
       genre,
+      instruments,
       bio,
       career,
       avatar_url: avatarUrl,

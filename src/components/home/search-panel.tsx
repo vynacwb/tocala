@@ -2,21 +2,25 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, CalendarDays, Check, ChevronDown, Search, X } from "lucide-react";
+import { ArrowRight, CalendarDays, Check, ChevronDown, Music2, Search, X } from "lucide-react";
 import { useToast } from "@/components/providers/app-providers";
 import { MUSIC_GENRES } from "@/lib/genres";
 import { formatDateLabel, parseDateKey } from "@/lib/availability";
 import { MonthCalendar } from "@/components/calendar/month-calendar";
+import { MUSIC_INSTRUMENT_GROUPS } from "@/lib/instruments";
 
 const filters = ["Gênero", "Instrumento", "Disponibilidade"];
 
-export function SearchPanel({ initialQuery = "", initialGenres = [], initialAvailabilityStart = "", initialAvailabilityEnd = "", variant = "landing" }: { initialQuery?: string; initialGenres?: string[]; initialAvailabilityStart?: string; initialAvailabilityEnd?: string; variant?: "landing" | "results" }) {
+export function SearchPanel({ initialQuery = "", initialGenres = [], initialInstruments = [], initialAvailabilityStart = "", initialAvailabilityEnd = "", variant = "landing" }: { initialQuery?: string; initialGenres?: string[]; initialInstruments?: string[]; initialAvailabilityStart?: string; initialAvailabilityEnd?: string; variant?: "landing" | "results" }) {
   const { toast } = useToast();
   const router = useRouter();
   const [query, setQuery] = useState(initialQuery);
   const [selectedGenres, setSelectedGenres] = useState<string[]>(initialGenres);
   const [draftGenres, setDraftGenres] = useState<string[]>(initialGenres);
   const [genrePanelOpen, setGenrePanelOpen] = useState(false);
+  const [selectedInstruments, setSelectedInstruments] = useState<string[]>(initialInstruments);
+  const [draftInstruments, setDraftInstruments] = useState<string[]>(initialInstruments);
+  const [instrumentPanelOpen, setInstrumentPanelOpen] = useState(false);
   const [availabilityStart, setAvailabilityStart] = useState(initialAvailabilityStart);
   const [availabilityEnd, setAvailabilityEnd] = useState(initialAvailabilityEnd);
   const [draftStart, setDraftStart] = useState(initialAvailabilityStart);
@@ -31,6 +35,11 @@ export function SearchPanel({ initialQuery = "", initialGenres = [], initialAvai
   function openGenrePanel() {
     setDraftGenres(selectedGenres);
     setGenrePanelOpen(true);
+  }
+
+  function openInstrumentPanel() {
+    setDraftInstruments(selectedInstruments);
+    setInstrumentPanelOpen(true);
   }
 
   function openAvailabilityPanel() {
@@ -116,6 +125,29 @@ export function SearchPanel({ initialQuery = "", initialGenres = [], initialAvai
     router.push(`${search ? `/?${search}` : "/"}#destaques`);
   }
 
+  function updateInstrumentUrl(instruments: string[]) {
+    const params = new URLSearchParams(window.location.search);
+    if (query.trim()) params.set("busca", query.trim());
+    else params.delete("busca");
+    if (instruments.length) params.set("instrumentos", instruments.join(","));
+    else params.delete("instrumentos");
+    const search = params.toString();
+    router.push(`${search ? `/?${search}` : "/"}#destaques`);
+  }
+
+  function applyInstruments() {
+    setSelectedInstruments(draftInstruments);
+    updateInstrumentUrl(draftInstruments);
+    setInstrumentPanelOpen(false);
+  }
+
+  function removeInstrument(instrument: string) {
+    const next = selectedInstruments.filter((item) => item !== instrument);
+    setSelectedInstruments(next);
+    setDraftInstruments(next);
+    updateInstrumentUrl(next);
+  }
+
   return (
     <div id="busca" className={`scroll-mt-28 ${variant === "results" ? "" : "mt-9 lg:mt-10"}`}>
       {variant === "landing" && <h2 className="mb-3 text-lg font-semibold tracking-[-0.025em] lg:mb-4 lg:text-xl">Comece sua busca</h2>}
@@ -128,6 +160,7 @@ export function SearchPanel({ initialQuery = "", initialGenres = [], initialAvai
         <label htmlFor="busca-talentos" className="sr-only">O que ou quem você quer procurar?</label>
         <input id="busca-talentos" name="busca" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="O que/quem você quer procurar?" className={`min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-[#77717E] lg:text-base ${variant === "results" ? "text-white placeholder:text-white/40" : "text-[#202020]"}`} />
         <input type="hidden" name="generos" value={selectedGenres.join(",")} />
+        <input type="hidden" name="instrumentos" value={selectedInstruments.join(",")} />
         <input type="hidden" name="disponivel_de" value={availabilityStart} />
         <input type="hidden" name="disponivel_ate" value={availabilityEnd} />
         <button type="submit" className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#6C1EE7] text-white transition hover:bg-[#BA3BE7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6C1EE7] lg:h-11 lg:w-auto lg:px-6 lg:text-sm lg:font-semibold" aria-label="Buscar">
@@ -136,15 +169,16 @@ export function SearchPanel({ initialQuery = "", initialGenres = [], initialAvai
         </button>
       </form>
 
-      {variant === "results" && (selectedGenres.length > 0 || (availabilityStart && availabilityEnd)) && <div className="mt-3 flex flex-wrap gap-2" aria-label="Filtros ativos">
+      {variant === "results" && (selectedGenres.length > 0 || selectedInstruments.length > 0 || (availabilityStart && availabilityEnd)) && <div className="mt-3 flex flex-wrap gap-2" aria-label="Filtros ativos">
         {selectedGenres.map((genre) => <span key={genre} className="inline-flex items-center gap-1.5 rounded-full border border-[#BA3BE7]/35 bg-[#6C1EE7]/20 px-3 py-1.5 text-xs font-medium text-[#E4C9FF]">Gênero: {genre}<button type="button" onClick={() => removeGenre(genre)} className="rounded-full text-[#E4C9FF]/65 transition hover:text-white" aria-label={`Remover filtro ${genre}`}><X className="size-3.5" /></button></span>)}
+        {selectedInstruments.map((instrument) => <span key={instrument} className="inline-flex items-center gap-1.5 rounded-full border border-[#BA3BE7]/35 bg-[#6C1EE7]/20 px-3 py-1.5 text-xs font-medium text-[#E4C9FF]">Instrumento: {instrument}<button type="button" onClick={() => removeInstrument(instrument)} className="rounded-full text-[#E4C9FF]/65 transition hover:text-white" aria-label={`Remover filtro ${instrument}`}><X className="size-3.5" /></button></span>)}
         {availabilityStart && availabilityEnd && <span className="inline-flex items-center gap-1.5 rounded-full border border-[#BA3BE7]/35 bg-[#6C1EE7]/20 px-3 py-1.5 text-xs font-medium text-[#E4C9FF]">Disponibilidade: {formatDateLabel(availabilityStart)} – {formatDateLabel(availabilityEnd)}<button type="button" onClick={clearAvailability} className="rounded-full text-[#E4C9FF]/65 transition hover:text-white" aria-label="Remover filtro de disponibilidade"><X className="size-3.5" /></button></span>}
       </div>}
 
       <div className="hide-scrollbar -mx-5 mt-4 flex gap-2.5 overflow-x-auto px-5 pb-2 lg:mx-0 lg:mt-5 lg:flex-wrap lg:gap-3 lg:px-0" aria-label="Filtros de busca">
         {filters.map((filter) => (
-          <button key={filter} type="button" onClick={filter === "Gênero" ? openGenrePanel : filter === "Disponibilidade" ? openAvailabilityPanel : () => toast(`Filtro “${filter}” estará disponível em breve.`)} aria-expanded={filter === "Gênero" ? genrePanelOpen : filter === "Disponibilidade" ? availabilityPanelOpen : undefined} className={`inline-flex shrink-0 items-center gap-2 rounded-lg border px-3.5 py-2.5 text-[13px] font-medium transition hover:border-[#BA3BE7] hover:bg-[#6C1EE7]/40 lg:px-4 lg:py-3 ${(filter === "Gênero" && selectedGenres.length > 0) || (filter === "Disponibilidade" && availabilityStart && availabilityEnd) ? "border-[#BA3BE7] bg-[#6C1EE7]/40 text-white" : "border-[#BA3BE7]/40 bg-[#6C1EE7]/25 text-[#E4C9FF]"}`}>
-            {filter === "Gênero" && selectedGenres.length > 0 ? `Gênero (${selectedGenres.length})` : filter === "Disponibilidade" && availabilityStart && availabilityEnd ? "Disponibilidade (período)" : filter}<ChevronDown className="size-3.5" strokeWidth={1.8} />
+          <button key={filter} type="button" onClick={filter === "Gênero" ? openGenrePanel : filter === "Instrumento" ? openInstrumentPanel : openAvailabilityPanel} aria-expanded={filter === "Gênero" ? genrePanelOpen : filter === "Instrumento" ? instrumentPanelOpen : availabilityPanelOpen} className={`inline-flex shrink-0 items-center gap-2 rounded-lg border px-3.5 py-2.5 text-[13px] font-medium transition hover:border-[#BA3BE7] hover:bg-[#6C1EE7]/40 lg:px-4 lg:py-3 ${(filter === "Gênero" && selectedGenres.length > 0) || (filter === "Instrumento" && selectedInstruments.length > 0) || (filter === "Disponibilidade" && availabilityStart && availabilityEnd) ? "border-[#BA3BE7] bg-[#6C1EE7]/40 text-white" : "border-[#BA3BE7]/40 bg-[#6C1EE7]/25 text-[#E4C9FF]"}`}>
+            {filter === "Gênero" && selectedGenres.length > 0 ? `Gênero (${selectedGenres.length})` : filter === "Instrumento" && selectedInstruments.length > 0 ? `Instrumento (${selectedInstruments.length})` : filter === "Disponibilidade" && availabilityStart && availabilityEnd ? "Disponibilidade (período)" : filter}<ChevronDown className="size-3.5" strokeWidth={1.8} />
           </button>
         ))}
       </div>
@@ -173,6 +207,39 @@ export function SearchPanel({ initialQuery = "", initialGenres = [], initialAvai
             <div className="flex gap-2">
               <button type="button" onClick={() => setGenrePanelOpen(false)} className="rounded-lg border border-white/15 px-3.5 py-2.5 text-sm text-white/75 transition hover:bg-white/5">Cancelar</button>
               <button type="button" onClick={applyGenres} className="rounded-lg bg-[#6C1EE7] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#BA3BE7]">Aplicar{draftGenres.length > 0 ? ` (${draftGenres.length})` : ""}</button>
+            </div>
+          </div>
+        </section>
+      </div>}
+
+      {instrumentPanelOpen && <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm lg:items-center lg:p-6" role="presentation" onClick={() => setInstrumentPanelOpen(false)}>
+        <section role="dialog" aria-modal="true" aria-labelledby="instrument-filter-title" onClick={(event) => event.stopPropagation()} className="flex max-h-[90dvh] w-full max-w-lg flex-col rounded-t-3xl border border-white/10 bg-[#202020] shadow-2xl shadow-black/60 lg:rounded-3xl">
+          <div className="flex items-start justify-between border-b border-white/10 px-5 py-5 sm:px-6">
+            <div>
+              <h3 id="instrument-filter-title" className="flex items-center gap-2 text-lg font-semibold"><Music2 className="size-5 text-[#D6A0FF]" />Filtrar por instrumento</h3>
+              <p className="mt-1 text-xs text-white/50">Mostra artistas que tocam pelo menos um dos instrumentos escolhidos.</p>
+            </div>
+            <button type="button" onClick={() => setInstrumentPanelOpen(false)} className="flex size-9 items-center justify-center rounded-lg text-white/55 transition hover:bg-white/5 hover:text-white" aria-label="Fechar filtros de instrumento"><X className="size-5" /></button>
+          </div>
+          <div className="hide-scrollbar space-y-5 overflow-y-auto px-5 py-4 sm:px-6">
+            {MUSIC_INSTRUMENT_GROUPS.map((group) => <fieldset key={group.name}>
+              <legend className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#D6A0FF]">{group.name}</legend>
+              <div className="grid grid-cols-2 gap-2">
+                {group.instruments.map((instrument) => {
+                  const checked = draftInstruments.includes(instrument);
+                  return <label key={instrument} className={`flex min-h-10 cursor-pointer items-center gap-2 rounded-xl border px-2.5 py-2 text-xs transition ${checked ? "border-[#BA3BE7]/60 bg-[#6C1EE7]/20 text-white" : "border-white/10 bg-white/[0.02] text-white/70 hover:border-white/20"}`}>
+                    <input type="checkbox" checked={checked} onChange={() => setDraftInstruments((current) => checked ? current.filter((item) => item !== instrument) : [...current, instrument])} className="size-4 shrink-0 accent-[#BA3BE7]" />
+                    {instrument}
+                  </label>;
+                })}
+              </div>
+            </fieldset>)}
+          </div>
+          <div className="flex items-center justify-between gap-3 border-t border-white/10 px-5 py-4 pb-[calc(env(safe-area-inset-bottom)+16px)] sm:px-6 lg:pb-4">
+            <button type="button" onClick={() => setDraftInstruments([])} className="rounded-lg px-3 py-2.5 text-sm text-white/60 transition hover:bg-white/5 hover:text-white">Limpar</button>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setInstrumentPanelOpen(false)} className="rounded-lg border border-white/15 px-3.5 py-2.5 text-sm text-white/75 transition hover:bg-white/5">Cancelar</button>
+              <button type="button" onClick={applyInstruments} className="rounded-lg bg-[#6C1EE7] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#BA3BE7]">Aplicar{draftInstruments.length > 0 ? ` (${draftInstruments.length})` : ""}</button>
             </div>
           </div>
         </section>

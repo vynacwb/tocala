@@ -3,13 +3,14 @@
 /* eslint-disable @next/next/no-img-element */
 import { useActionState, useEffect, useMemo, useState, type ChangeEvent } from "react";
 import Link from "next/link";
-import { Camera, ChevronDown, ImagePlus, LoaderCircle, Mail, MapPin, Phone, Plus, Save, Sparkles, Trash2, UserRound } from "lucide-react";
+import { Camera, ChevronDown, ImagePlus, LoaderCircle, Mail, MapPin, Music2, Phone, Plus, Save, Sparkles, Trash2, UserRound } from "lucide-react";
 import { saveProfileSettings } from "@/app/perfil/configuracoes/actions";
 import { useToast } from "@/components/providers/app-providers";
 import { Button } from "@/components/ui/button";
 import type { CareerExperience, ProfileSettingsActionState, ProfileSettingsData } from "@/lib/profile-settings";
 import { createClient } from "@/utils/supabase/client";
 import { MUSIC_GENRES } from "@/lib/genres";
+import { MUSIC_INSTRUMENT_GROUPS } from "@/lib/instruments";
 
 const initialActionState: ProfileSettingsActionState = { status: "idle", message: "", submissionId: 0 };
 
@@ -60,6 +61,7 @@ export function ProfileSettingsForm({ initialData, configured }: { initialData: 
   const [city, setCity] = useState(initialData.city);
   const [stateCode, setStateCode] = useState(initialData.state);
   const [genre, setGenre] = useState(initialData.genre);
+  const [instruments, setInstruments] = useState(initialData.instruments);
   const [bio, setBio] = useState(initialData.bio);
   const [avatarUrl, setAvatarUrl] = useState(initialData.avatarUrl);
   const [avatarPositionX, setAvatarPositionX] = useState(initialData.avatarPositionX);
@@ -205,6 +207,29 @@ export function ProfileSettingsForm({ initialData, configured }: { initialData: 
               </select>
               <ChevronDown className="pointer-events-none absolute bottom-[18px] right-4 size-4 text-[#D6A0FF]" />
             </label>
+            <section className="sm:col-span-2" aria-labelledby="profile-instruments-title">
+              <div className="mb-3 flex items-center gap-2">
+                <Music2 className="size-4 text-[#D6A0FF]" />
+                <h3 id="profile-instruments-title" className="text-sm font-medium text-white/80">Instrumentos que você toca</h3>
+                <span className="text-[11px] text-white/35">Opcional</span>
+              </div>
+              <p className="mb-4 text-xs text-white/45">Selecione todos os instrumentos que você toca para aparecer nos filtros de busca.</p>
+              <div className="max-h-[390px] space-y-4 overflow-y-auto rounded-2xl border border-white/10 bg-[#101010]/45 p-3 sm:p-4">
+                {MUSIC_INSTRUMENT_GROUPS.map((group) => <fieldset key={group.name}>
+                  <legend className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#D6A0FF]">{group.name}</legend>
+                  <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
+                    {group.instruments.map((instrument) => {
+                      const checked = instruments.includes(instrument);
+                      return <label key={instrument} className={`flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-2 text-xs transition ${checked ? "border-[#BA3BE7]/55 bg-[#6C1EE7]/20 text-white" : "border-white/10 bg-white/[0.02] text-white/65 hover:border-white/20"}`}>
+                        <input type="checkbox" name="instruments" value={instrument} checked={checked} onChange={() => setInstruments((current) => checked ? current.filter((item) => item !== instrument) : [...current, instrument])} className="size-4 shrink-0 accent-[#BA3BE7]" />
+                        {instrument}
+                      </label>;
+                    })}
+                  </div>
+                </fieldset>)}
+              </div>
+              <p className="mt-2 text-xs text-white/40">{instruments.length} {instruments.length === 1 ? "instrumento selecionado" : "instrumentos selecionados"}</p>
+            </section>
             <div className="hidden rounded-2xl border border-[#BA3BE7]/20 bg-[#6C1EE7]/10 p-4 sm:col-span-2 sm:flex sm:items-center sm:gap-3">
               <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#6C1EE7]/20 text-[#D6A0FF]"><Sparkles className="size-5" /></span>
               <p className="text-xs leading-relaxed text-white/55">Um perfil completo aumenta sua visibilidade nas buscas e ajuda contratantes a conhecerem seu trabalho.</p>

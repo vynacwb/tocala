@@ -16,6 +16,7 @@ const demoData: ProfileSettingsData = {
   realName: "Marina Oliveira", fullName: "Marina Luz", username: "marinaluz",
   contactEmail: "contato@marinaluz.com", contactPhone: "+55 11 99999-1234",
   city: "São Paulo", state: "SP", genre: "MPB",
+  instruments: ["Voz", "Cavaquinho", "Pandeiro"],
   bio: "Cantora e compositora movida por encontros, histórias e pela força da música brasileira.",
   avatarUrl: "https://images.unsplash.com/photo-1643370857818-d3705b0a1ec1?auto=format&fit=crop&w=600&q=85",
   avatarPositionX: 50, avatarPositionY: 50,
@@ -32,7 +33,7 @@ async function getSettingsData(): Promise<{ data: ProfileSettingsData; configure
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login?redirectTo=/perfil/configuracoes");
   const [{ data: profile }, { data: musician }] = await Promise.all([
-    supabase.from("profiles").select("real_name, stage_name, full_name, username, contact_email, contact_phone, city, state, genre, bio, career, avatar_url, avatar_position_x, avatar_position_y").eq("id", user.id).maybeSingle(),
+    supabase.from("profiles").select("real_name, stage_name, full_name, username, contact_email, contact_phone, city, state, genre, instruments, bio, career, avatar_url, avatar_position_x, avatar_position_y").eq("id", user.id).maybeSingle(),
     supabase.from("musician_profiles").select("portfolio_links").eq("user_id", user.id).maybeSingle(),
   ]);
   const fallbackUsername = emailUsername(user.email);
@@ -45,7 +46,7 @@ async function getSettingsData(): Promise<{ data: ProfileSettingsData; configure
     fullName: profile?.stage_name || "", username,
     contactEmail: profile?.contact_email || "", contactPhone: profile?.contact_phone || "",
     city: profile?.city || "", state: profile?.state || "",
-    genre: profile?.genre || "", bio: profile?.bio || "", avatarUrl: profile?.avatar_url || "",
+    genre: profile?.genre || "", instruments: Array.isArray(profile?.instruments) ? profile.instruments : [], bio: profile?.bio || "", avatarUrl: profile?.avatar_url || "",
     avatarPositionX: profile?.avatar_position_x ?? 50, avatarPositionY: profile?.avatar_position_y ?? 50,
     experiences: parseCareer(profile?.career || "", portfolioLinks),
   } };

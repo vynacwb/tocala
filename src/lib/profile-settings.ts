@@ -14,6 +14,7 @@ export type ProfileSettingsData = {
   city: string;
   state: string;
   genre: string;
+  instruments: string[];
   bio: string;
   avatarUrl: string;
   avatarPositionX: number;
