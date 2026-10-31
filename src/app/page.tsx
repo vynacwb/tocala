@@ -39,7 +39,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     const supabase = await createClient();
     const { data } = await supabase
       .from("profiles")
-      .select("id, real_name, stage_name, username, genre, instruments, rating, review_count, avatar_url, avatar_position_x, avatar_position_y, booking_weekdays, city, state")
+      .select("id, real_name, stage_name, username, genre, genres, instruments, rating, review_count, avatar_url, avatar_position_x, avatar_position_y, booking_weekdays, city, state")
       .eq("account_type", "MUSICO")
       .eq("status", "ATIVO")
       .eq("profile_visible", true)
@@ -52,6 +52,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       realName: artist.real_name,
       username: artist.username,
       genre: artist.genre || "Artista",
+      genres: Array.isArray(artist.genres) && artist.genres.length > 0 ? artist.genres as string[] : (artist.genre || "").split(/[·,]/).map((item: string) => item.trim()).filter(Boolean),
       instruments: Array.isArray(artist.instruments) ? artist.instruments : [],
       rating: Number(artist.rating),
       reviews: artist.review_count,
@@ -97,8 +98,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const selectedGenres = new Set(initialGenres.map(normalizeGenre));
   const selectedInstruments = new Set(initialInstruments.map(normalizeInstrument));
   const matchingArtists = artists.filter((artist) => {
-    const matchesText = !normalizedQuery || [artist.name, artist.realName, artist.username, artist.genre, artist.city, artist.state].some((value) => value?.toLocaleLowerCase("pt-BR").includes(normalizedQuery));
-    const matchesGenre = selectedGenres.size === 0 || selectedGenres.has(normalizeGenre(artist.genre));
+    const matchesText = !normalizedQuery || [artist.name, artist.realName, artist.username, artist.genre, ...(artist.genres ?? []), artist.city, artist.state].some((value) => value?.toLocaleLowerCase("pt-BR").includes(normalizedQuery));
+    const matchesGenre = selectedGenres.size === 0 || (artist.genres ?? [artist.genre]).some((genre) => selectedGenres.has(normalizeGenre(genre)));
     const matchesInstrument = selectedInstruments.size === 0 || (artist.instruments ?? []).some((instrument) => selectedInstruments.has(normalizeInstrument(instrument)));
     let matchesAvailability = true;
     if (hasValidAvailabilityRange) {

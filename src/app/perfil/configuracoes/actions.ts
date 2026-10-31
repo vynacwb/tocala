@@ -4,9 +4,11 @@ import { revalidatePath } from "next/cache";
 import type { CareerExperience, ProfileSettingsActionState } from "@/lib/profile-settings";
 import { serializeCareer } from "@/lib/profile-settings";
 import { MUSIC_INSTRUMENTS } from "@/lib/instruments";
+import { MUSIC_GENRES } from "@/lib/genres";
 import { createClient } from "@/utils/supabase/server";
 
 const allowedInstruments = new Set<string>(MUSIC_INSTRUMENTS);
+const allowedGenres = new Set<string>(MUSIC_GENRES);
 
 function isWebUrl(value: string) {
   if (!value) return true;
@@ -40,7 +42,8 @@ export async function saveProfileSettings(
   const contactPhone = String(formData.get("contactPhone") ?? "").trim();
   const city = String(formData.get("city") ?? "").trim();
   const state = String(formData.get("state") ?? "").trim().toUpperCase();
-  const genre = String(formData.get("genre") ?? "").trim();
+  const genres = [...new Set(formData.getAll("genres").map((value) => String(value).trim()))];
+  const genre = genres.join(" · ");
   const instruments = [...new Set(formData.getAll("instruments").map((value) => String(value).trim()))];
   const bio = String(formData.get("bio") ?? "").trim();
   const avatarUrl = String(formData.get("avatarUrl") ?? "").trim();
@@ -53,7 +56,7 @@ export async function saveProfileSettings(
   if (contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) return errorState("Informe um e-mail de contato válido.");
   if (contactPhone.length > 30 || (contactPhone && contactPhone.replace(/\D/g, "").length < 8)) return errorState("Informe um WhatsApp válido com pelo menos 8 dígitos.");
   if (city.length > 100 || (state && !/^[A-Z]{2}$/.test(state)) || (Boolean(city) !== Boolean(state))) return errorState("Preencha cidade e sigla do estado juntos (por exemplo, São Paulo e SP).");
-  if (!genre || genre.length > 60) return errorState("Selecione um estilo musical válido.");
+  if (genres.length === 0 || genres.length > MUSIC_GENRES.length || genres.some((item) => !allowedGenres.has(item))) return errorState("Selecione pelo menos um estilo musical da lista.");
   if (instruments.length > MUSIC_INSTRUMENTS.length || instruments.some((instrument) => !allowedInstruments.has(instrument))) return errorState("Selecione instrumentos da lista disponível.");
   if (bio.length > 20000) return errorState("O texto sobre o artista ultrapassou 20.000 caracteres.");
   if (!isWebUrl(avatarUrl)) return errorState("Informe uma URL válida para a foto de perfil.");
@@ -102,6 +105,7 @@ export async function saveProfileSettings(
       state,
       profile_visible: true,
       genre,
+      genres,
       instruments,
       bio,
       career,
@@ -122,7 +126,7 @@ export async function saveProfileSettings(
         user_id: user.id,
         stage_name: stageName || realName,
         bio_description: bio,
-        musical_genres: [genre],
+        musical_genres: genres,
         portfolio_links: portfolioLinks,
       },
       { onConflict: "user_id" },

@@ -6,6 +6,7 @@ export type Artist = {
   realName?: string;
   username: string;
   genre: string;
+  genres?: string[];
   instruments?: string[];
   city?: string;
   state?: string;

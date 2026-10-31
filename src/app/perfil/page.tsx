@@ -27,6 +27,7 @@ type Profile = {
   state: string;
   username: string;
   genre: string;
+  genres: string[];
   instruments: string[];
   bio: string;
   career: string;
@@ -56,6 +57,7 @@ const demoProfile: Profile = {
   state: "SP",
   username: "marinaluz",
   genre: "MPB · Soul",
+  genres: ["MPB", "Soul"],
   instruments: ["Voz", "Cavaquinho", "Pandeiro"],
   bio: "Cantora e compositora movida por encontros, histórias e pela força da música brasileira. Cada apresentação é criada para aproximar o público e transformar o palco em um espaço de troca.",
   career: "Com oito anos de estrada, Marina já passou por casas de show e festivais em diferentes cidades. Seu repertório reúne composições autorais, releituras da MPB e influências de soul contemporâneo.",
@@ -81,7 +83,7 @@ async function getProfileData(publicArtistId?: string): Promise<{ profile: Profi
   if (publicArtistId) {
     if (!/^[0-9a-f-]{36}$/i.test(publicArtistId)) notFound();
     const [{ data: profileData }, { data: reviewsData }, { data: demoReviewsData }] = await Promise.all([
-      supabase.from("profiles").select("real_name, stage_name, full_name, username, genre, instruments, bio, career, avatar_url, avatar_position_x, avatar_position_y, booking_weekdays, level, rating, review_count, contact_email, contact_phone, city, state").eq("id", publicArtistId).eq("profile_visible", true).eq("status", "ATIVO").maybeSingle(),
+      supabase.from("profiles").select("real_name, stage_name, full_name, username, genre, genres, instruments, bio, career, avatar_url, avatar_position_x, avatar_position_y, booking_weekdays, level, rating, review_count, contact_email, contact_phone, city, state").eq("id", publicArtistId).eq("profile_visible", true).eq("status", "ATIVO").maybeSingle(),
       supabase.from("reviews").select("id, author_name, author_avatar_url, body, rating").eq("artist_id", publicArtistId).order("created_at", { ascending: false }).limit(6),
       supabase.from("demo_reviews").select("id, artist_id, author_name, body, rating, created_at").eq("artist_id", publicArtistId).order("created_at", { ascending: false }).limit(20),
     ]);
@@ -92,6 +94,7 @@ async function getProfileData(publicArtistId?: string): Promise<{ profile: Profi
       full_name: profileData.stage_name || profileData.real_name || profileData.full_name || profileData.username,
       username: profileData.username,
       genre: profileData.genre,
+      genres: Array.isArray(profileData.genres) && profileData.genres.length > 0 ? profileData.genres as string[] : (profileData.genre || "").split(/[·,]/).map((item: string) => item.trim()).filter(Boolean),
       instruments: Array.isArray(profileData.instruments) ? profileData.instruments : [],
       bio: profileData.bio,
       career: profileData.career,
@@ -114,7 +117,7 @@ async function getProfileData(publicArtistId?: string): Promise<{ profile: Profi
   if (!user) redirect("/login?redirectTo=/perfil");
 
   const [{ data: profileData }, { data: reviewsData }, { data: demoReviewsData }] = await Promise.all([
-    supabase.from("profiles").select("real_name, stage_name, full_name, username, genre, instruments, bio, career, avatar_url, avatar_position_x, avatar_position_y, booking_weekdays, level, rating, review_count, contact_email, contact_phone, city, state").eq("id", user.id).maybeSingle(),
+    supabase.from("profiles").select("real_name, stage_name, full_name, username, genre, genres, instruments, bio, career, avatar_url, avatar_position_x, avatar_position_y, booking_weekdays, level, rating, review_count, contact_email, contact_phone, city, state").eq("id", user.id).maybeSingle(),
     supabase.from("reviews").select("id, author_name, author_avatar_url, body, rating").eq("artist_id", user.id).order("created_at", { ascending: false }).limit(6),
     supabase.from("demo_reviews").select("id, artist_id, author_name, body, rating, created_at").eq("artist_id", user.id).order("created_at", { ascending: false }).limit(20),
   ]);
@@ -125,6 +128,7 @@ async function getProfileData(publicArtistId?: string): Promise<{ profile: Profi
     full_name: profileData?.stage_name || profileData?.real_name || profileData?.full_name || user.user_metadata.full_name || demoProfile.full_name,
     username: profileData?.username || user.email?.split("@")[0] || demoProfile.username,
     genre: profileData?.genre || demoProfile.genre,
+    genres: Array.isArray(profileData?.genres) && profileData.genres.length > 0 ? profileData.genres as string[] : (profileData?.genre || demoProfile.genre).split(/[·,]/).map((item: string) => item.trim()).filter(Boolean),
     instruments: Array.isArray(profileData?.instruments) ? profileData.instruments : [],
     bio: profileData?.bio || demoProfile.bio,
     career: profileData?.career || demoProfile.career,
@@ -186,7 +190,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
             <div className="mt-5">
               <h1 className="text-[28px] font-bold leading-tight tracking-[-0.04em] lg:text-[40px]">{profile.full_name}</h1>
               <p className="mt-1 text-sm text-white/60 lg:text-base">@{profile.username}</p>
-              <p className="mt-3 text-sm italic text-[#D6A0FF] lg:text-base">{profile.genre}</p>
+              <div className="mt-3 flex flex-wrap justify-center gap-2">{(profile.genres.length > 0 ? profile.genres : [profile.genre]).map((genre) => <span key={genre} className="rounded-full bg-[#6C1EE7]/20 px-3 py-1 text-xs font-medium text-[#E4C9FF]">{genre}</span>)}</div>
               {(profile.city || profile.state) && <p className="mt-2 inline-flex items-center gap-1.5 text-sm text-white/55"><MapPin className="size-4 text-[#D6A0FF]" />{[profile.city, profile.state].filter(Boolean).join(", ")}</p>}
             </div>
             <div className="mt-7 flex w-full max-w-[480px] items-center justify-between gap-4 border-t border-white/10 pt-6">

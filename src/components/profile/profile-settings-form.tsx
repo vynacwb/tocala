@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 import { useActionState, useEffect, useMemo, useState, type ChangeEvent } from "react";
 import Link from "next/link";
-import { Camera, ChevronDown, ImagePlus, LoaderCircle, Mail, MapPin, Music2, Phone, Plus, Save, Sparkles, Trash2, UserRound } from "lucide-react";
+import { Camera, ImagePlus, LoaderCircle, Mail, MapPin, Music2, Phone, Plus, Save, Sparkles, Trash2, UserRound } from "lucide-react";
 import { saveProfileSettings } from "@/app/perfil/configuracoes/actions";
 import { useToast } from "@/components/providers/app-providers";
 import { Button } from "@/components/ui/button";
@@ -60,7 +60,7 @@ export function ProfileSettingsForm({ initialData, configured }: { initialData: 
   const [contactPhone, setContactPhone] = useState(initialData.contactPhone);
   const [city, setCity] = useState(initialData.city);
   const [stateCode, setStateCode] = useState(initialData.state);
-  const [genre, setGenre] = useState(initialData.genre);
+  const [genres, setGenres] = useState(initialData.genres);
   const [instruments, setInstruments] = useState(initialData.instruments);
   const [bio, setBio] = useState(initialData.bio);
   const [avatarUrl, setAvatarUrl] = useState(initialData.avatarUrl);
@@ -199,14 +199,23 @@ export function ProfileSettingsForm({ initialData, configured }: { initialData: 
                 <input name="username" value={username} onChange={(event) => setUsername(event.target.value.replace(/^@/, ""))} minLength={3} maxLength={30} pattern="[A-Za-z0-9._-]+" required placeholder="seu.usuario" className="h-14 w-full rounded-xl border border-white/15 bg-[#101010]/70 pl-9 pr-4 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20" />
               </div>
             </label>
-            <label className="relative block sm:col-span-2">
-              <FieldLabel>Estilo musical</FieldLabel>
-              <select name="genre" value={genre} onChange={(event) => setGenre(event.target.value)} required className="h-14 w-full appearance-none rounded-xl border border-white/15 bg-[#101010]/70 px-4 pr-12 text-sm text-white outline-none transition focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20">
-                <option value="" disabled>Selecione seu estilo</option>
-                {MUSIC_GENRES.map((item) => <option key={item} value={item}>{item}</option>)}
-              </select>
-              <ChevronDown className="pointer-events-none absolute bottom-[18px] right-4 size-4 text-[#D6A0FF]" />
-            </label>
+            <section className="sm:col-span-2" aria-labelledby="profile-genres-title">
+              <div className="mb-3 flex items-center gap-2">
+                <Music2 className="size-4 text-[#D6A0FF]" />
+                <h3 id="profile-genres-title" className="text-sm font-medium text-white/80">Estilos musicais</h3>
+                <span className="text-[11px] text-white/35">Selecione todos que se aplicam</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {MUSIC_GENRES.map((item) => {
+                  const checked = genres.includes(item);
+                  return <label key={item} className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border px-3 py-2.5 text-sm transition ${checked ? "border-[#BA3BE7]/60 bg-[#6C1EE7]/20 text-white" : "border-white/10 bg-[#101010]/45 text-white/65 hover:border-white/20"}`}>
+                    <input type="checkbox" name="genres" value={item} checked={checked} onChange={() => setGenres((current) => checked ? current.filter((genre) => genre !== item) : [...current, item])} className="size-4 shrink-0 accent-[#BA3BE7]" />
+                    {item}
+                  </label>;
+                })}
+              </div>
+              <p className="mt-2 text-xs text-white/40">{genres.length} {genres.length === 1 ? "estilo selecionado" : "estilos selecionados"}</p>
+            </section>
             <section className="sm:col-span-2" aria-labelledby="profile-instruments-title">
               <div className="mb-3 flex items-center gap-2">
                 <Music2 className="size-4 text-[#D6A0FF]" />
