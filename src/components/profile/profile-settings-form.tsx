@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 import { useActionState, useEffect, useMemo, useState, type ChangeEvent } from "react";
 import Link from "next/link";
-import { Camera, ImagePlus, LoaderCircle, Mail, MapPin, Music2, Phone, Plus, Save, Sparkles, Trash2, UserRound } from "lucide-react";
+import { Camera, ChevronDown, ImagePlus, LoaderCircle, Mail, MapPin, Music2, Phone, Plus, Save, Sparkles, Trash2, UserRound } from "lucide-react";
 import { saveProfileSettings } from "@/app/perfil/configuracoes/actions";
 import { useToast } from "@/components/providers/app-providers";
 import { Button } from "@/components/ui/button";
@@ -205,15 +205,26 @@ export function ProfileSettingsForm({ initialData, configured }: { initialData: 
                 <h3 id="profile-genres-title" className="text-sm font-medium text-white/80">Estilos musicais</h3>
                 <span className="text-[11px] text-white/35">Selecione todos que se aplicam</span>
               </div>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {MUSIC_GENRES.map((item) => {
-                  const checked = genres.includes(item);
-                  return <label key={item} className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border px-3 py-2.5 text-sm transition ${checked ? "border-[#BA3BE7]/60 bg-[#6C1EE7]/20 text-white" : "border-white/10 bg-[#101010]/45 text-white/65 hover:border-white/20"}`}>
-                    <input type="checkbox" name="genres" value={item} checked={checked} onChange={() => setGenres((current) => checked ? current.filter((genre) => genre !== item) : [...current, item])} className="size-4 shrink-0 accent-[#BA3BE7]" />
-                    {item}
-                  </label>;
-                })}
-              </div>
+              <details className="group relative">
+                <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 rounded-xl border border-white/15 bg-[#101010]/70 px-4 py-3 text-sm transition hover:border-white/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#BA3BE7] [&::-webkit-details-marker]:hidden">
+                  <span className={genres.length ? "min-w-0 truncate text-white" : "text-white/40"}>
+                    {genres.length ? genres.join(", ") : "Selecione um ou mais estilos musicais"}
+                  </span>
+                  <span className="flex shrink-0 items-center gap-3">
+                    {genres.length > 0 && <span className="rounded-full bg-[#6C1EE7]/25 px-2.5 py-1 text-[10px] font-semibold text-[#D6A0FF]">{genres.length} {genres.length === 1 ? "selecionado" : "selecionados"}</span>}
+                    <ChevronDown className="size-4 text-white/50 transition group-open:rotate-180" aria-hidden="true" />
+                  </span>
+                </summary>
+                <div className="mt-2 max-h-72 overflow-y-auto rounded-2xl border border-white/10 bg-[#151515] p-2 shadow-xl shadow-black/30 [scrollbar-color:#6C1EE7_#242424] [scrollbar-width:thin]">
+                  {MUSIC_GENRES.map((item) => {
+                    const checked = genres.includes(item);
+                    return <label key={item} className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${checked ? "bg-[#6C1EE7]/20 text-white" : "text-white/65 hover:bg-white/[0.05] hover:text-white"}`}>
+                      <input type="checkbox" name="genres" value={item} checked={checked} onChange={() => setGenres((current) => checked ? current.filter((genre) => genre !== item) : [...current, item])} className="size-4 shrink-0 accent-[#BA3BE7]" />
+                      {item}
+                    </label>;
+                  })}
+                </div>
+              </details>
               <p className="mt-2 text-xs text-white/40">{genres.length} {genres.length === 1 ? "estilo selecionado" : "estilos selecionados"}</p>
             </section>
             <section className="sm:col-span-2" aria-labelledby="profile-instruments-title">
@@ -223,20 +234,31 @@ export function ProfileSettingsForm({ initialData, configured }: { initialData: 
                 <span className="text-[11px] text-white/35">Opcional</span>
               </div>
               <p className="mb-4 text-xs text-white/45">Selecione todos os instrumentos que você toca para aparecer nos filtros de busca.</p>
-              <div className="max-h-[390px] space-y-4 overflow-y-auto rounded-2xl border border-white/10 bg-[#101010]/45 p-3 sm:p-4">
-                {MUSIC_INSTRUMENT_GROUPS.map((group) => <fieldset key={group.name}>
-                  <legend className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#D6A0FF]">{group.name}</legend>
-                  <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
-                    {group.instruments.map((instrument) => {
-                      const checked = instruments.includes(instrument);
-                      return <label key={instrument} className={`flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-2 text-xs transition ${checked ? "border-[#BA3BE7]/55 bg-[#6C1EE7]/20 text-white" : "border-white/10 bg-white/[0.02] text-white/65 hover:border-white/20"}`}>
-                        <input type="checkbox" name="instruments" value={instrument} checked={checked} onChange={() => setInstruments((current) => checked ? current.filter((item) => item !== instrument) : [...current, instrument])} className="size-4 shrink-0 accent-[#BA3BE7]" />
-                        {instrument}
-                      </label>;
-                    })}
-                  </div>
-                </fieldset>)}
-              </div>
+              <details className="group relative">
+                <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 rounded-xl border border-white/15 bg-[#101010]/70 px-4 py-3 text-sm transition hover:border-white/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#BA3BE7] [&::-webkit-details-marker]:hidden">
+                  <span className={instruments.length ? "min-w-0 truncate text-white" : "text-white/40"}>
+                    {instruments.length ? instruments.join(", ") : "Selecione um ou mais instrumentos"}
+                  </span>
+                  <span className="flex shrink-0 items-center gap-3">
+                    {instruments.length > 0 && <span className="rounded-full bg-[#6C1EE7]/25 px-2.5 py-1 text-[10px] font-semibold text-[#D6A0FF]">{instruments.length} {instruments.length === 1 ? "selecionado" : "selecionados"}</span>}
+                    <ChevronDown className="size-4 text-white/50 transition group-open:rotate-180" aria-hidden="true" />
+                  </span>
+                </summary>
+                <div className="mt-2 max-h-[390px] space-y-4 overflow-y-auto rounded-2xl border border-white/10 bg-[#151515] p-3 shadow-xl shadow-black/30 sm:p-4 [scrollbar-color:#6C1EE7_#242424] [scrollbar-width:thin]">
+                  {MUSIC_INSTRUMENT_GROUPS.map((group) => <fieldset key={group.name}>
+                    <legend className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#D6A0FF]">{group.name}</legend>
+                    <div className="space-y-1">
+                      {group.instruments.map((instrument) => {
+                        const checked = instruments.includes(instrument);
+                        return <label key={instrument} className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${checked ? "bg-[#6C1EE7]/20 text-white" : "text-white/65 hover:bg-white/[0.05] hover:text-white"}`}>
+                          <input type="checkbox" name="instruments" value={instrument} checked={checked} onChange={() => setInstruments((current) => checked ? current.filter((item) => item !== instrument) : [...current, instrument])} className="size-4 shrink-0 accent-[#BA3BE7]" />
+                          {instrument}
+                        </label>;
+                      })}
+                    </div>
+                  </fieldset>)}
+                </div>
+              </details>
               <p className="mt-2 text-xs text-white/40">{instruments.length} {instruments.length === 1 ? "instrumento selecionado" : "instrumentos selecionados"}</p>
             </section>
             <div className="hidden rounded-2xl border border-[#BA3BE7]/20 bg-[#6C1EE7]/10 p-4 sm:col-span-2 sm:flex sm:items-center sm:gap-3">
