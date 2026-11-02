@@ -7,19 +7,18 @@ import { usePathname } from "next/navigation";
 import { CircleDollarSign, House, Trophy, UserRound } from "lucide-react";
 import { NotificationBell } from "@/components/layout/notification-bell";
 import { readStoredDemoReviews, removeStoredDemoReviews } from "@/lib/demo-reviews";
-import { useToast } from "@/components/providers/app-providers";
 import { createClient } from "@/utils/supabase/client";
 import { isSupabaseConfigured } from "@/utils/supabase/config";
 
 type Account = { profileId: string; avatarUrl: string | null; avatarPositionX: number; avatarPositionY: number };
 
 export function MobileNav() {
-  const { toast } = useToast();
   const pathname = usePathname();
   const [account, setAccount] = useState<Account | null>(null);
   const configured = isSupabaseConfigured();
   const isHomeActive = pathname === "/";
   const isProfileActive = pathname.startsWith("/perfil");
+  const isFinanceActive = pathname === "/financeiro";
 
   useEffect(() => {
     if (!configured) return;
@@ -61,9 +60,9 @@ export function MobileNav() {
         <Link href="/ranking" aria-label="Ranking" aria-current={pathname === "/ranking" ? "page" : undefined} className={`mx-auto flex size-12 flex-col items-center justify-center gap-0.5 rounded-xl transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#BA3BE7] ${pathname === "/ranking" ? "bg-[#6C1EE7]/25 text-[#D6A0FF] shadow-inner shadow-[#BA3BE7]/15" : "text-white/65 hover:bg-white/5 hover:text-[#D6A0FF]"}`}>
           <Trophy className="size-5" strokeWidth={pathname === "/ranking" ? 2.3 : 1.8} /><span className="text-[9px] leading-none">Ranking</span>
         </Link>
-        {account && <button type="button" onClick={() => toast("A área Financeiro estará disponível em breve.")} aria-label="Financeiro, em breve" className="mx-auto flex size-12 flex-col items-center justify-center gap-0.5 rounded-xl text-white/65 transition hover:bg-white/5 hover:text-[#D6A0FF] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#BA3BE7]">
-          <CircleDollarSign className="size-5" strokeWidth={1.8} /><span className="text-[9px] leading-none">Financeiro</span>
-        </button>}
+        {account && <Link href="/financeiro" aria-label="Financeiro" aria-current={isFinanceActive ? "page" : undefined} className={`mx-auto flex size-12 flex-col items-center justify-center gap-0.5 rounded-xl transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#BA3BE7] ${isFinanceActive ? "bg-[#6C1EE7]/25 text-[#D6A0FF] shadow-inner shadow-[#BA3BE7]/15" : "text-white/65 hover:bg-white/5 hover:text-[#D6A0FF]"}`}>
+          <CircleDollarSign className="size-5" strokeWidth={isFinanceActive ? 2.3 : 1.8} /><span className="text-[9px] leading-none">Financeiro</span>
+        </Link>}
         {account && <NotificationBell profileId={account.profileId} variant="mobile" />}
         <Link href="/perfil" aria-label="Abrir perfil" aria-current={isProfileActive ? "page" : undefined} className={`mx-auto flex size-12 flex-col items-center justify-center gap-0.5 overflow-hidden rounded-xl transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#BA3BE7] ${isProfileActive ? "bg-[#6C1EE7]/25 text-[#D6A0FF] shadow-inner shadow-[#BA3BE7]/15" : "text-white/65 hover:bg-white/5 hover:text-[#D6A0FF]"}`}>
           {account?.avatarUrl ? <Image src={account.avatarUrl} alt="" width={24} height={24} unoptimized style={{ objectPosition: `${account.avatarPositionX}% ${account.avatarPositionY}%` }} className={`size-6 rounded-full object-cover ${isProfileActive ? "ring-1 ring-[#D6A0FF]" : ""}`} /> : <UserRound className="size-5" strokeWidth={isProfileActive ? 2.3 : 1.8} />}
