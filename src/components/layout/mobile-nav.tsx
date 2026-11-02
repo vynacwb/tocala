@@ -58,9 +58,9 @@ export function MobileNav() {
         <Link href="/#explorar" aria-label="Página inicial" aria-current={isHomeActive ? "page" : undefined} className={`mx-auto flex size-12 flex-col items-center justify-center gap-0.5 rounded-xl transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#BA3BE7] ${isHomeActive ? "bg-[#6C1EE7]/25 text-[#D6A0FF] shadow-inner shadow-[#BA3BE7]/15" : "text-white/65 hover:bg-white/5 hover:text-[#D6A0FF]"}`}>
           <House className="size-5" strokeWidth={isHomeActive ? 2.3 : 1.8} /><span className="text-[9px] leading-none">Home</span>
         </Link>
-        <button type="button" onClick={() => toast("O Ranking estará disponível em breve.")} aria-label="Ranking, em breve" className="mx-auto flex size-12 flex-col items-center justify-center gap-0.5 rounded-xl text-white/65 transition hover:bg-white/5 hover:text-[#D6A0FF] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#BA3BE7]">
-          <Trophy className="size-5" strokeWidth={1.8} /><span className="text-[9px] leading-none">Ranking</span>
-        </button>
+        <Link href="/ranking" aria-label="Ranking" aria-current={pathname === "/ranking" ? "page" : undefined} className={`mx-auto flex size-12 flex-col items-center justify-center gap-0.5 rounded-xl transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#BA3BE7] ${pathname === "/ranking" ? "bg-[#6C1EE7]/25 text-[#D6A0FF] shadow-inner shadow-[#BA3BE7]/15" : "text-white/65 hover:bg-white/5 hover:text-[#D6A0FF]"}`}>
+          <Trophy className="size-5" strokeWidth={pathname === "/ranking" ? 2.3 : 1.8} /><span className="text-[9px] leading-none">Ranking</span>
+        </Link>
         {account && <button type="button" onClick={() => toast("A área Financeiro estará disponível em breve.")} aria-label="Financeiro, em breve" className="mx-auto flex size-12 flex-col items-center justify-center gap-0.5 rounded-xl text-white/65 transition hover:bg-white/5 hover:text-[#D6A0FF] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#BA3BE7]">
           <CircleDollarSign className="size-5" strokeWidth={1.8} /><span className="text-[9px] leading-none">Financeiro</span>
         </button>}
