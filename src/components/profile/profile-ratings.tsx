@@ -50,7 +50,7 @@ export function ProfileReviews({ artistId, baseRating, baseCount, reviews, share
       {merged.map((review) => <article key={review.id} className="rounded-xl border border-white/10 bg-[#1A1A1A] p-4 lg:p-5">
         <div className="flex items-start gap-3">
           {review.author_avatar_url ? <Image src={review.author_avatar_url} alt={`Foto de ${review.author_name}`} width={44} height={44} className="size-11 shrink-0 rounded-full object-cover" /> : <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[#6C1EE7]/20 text-sm font-semibold text-[#D6A0FF]">{review.author_name.slice(0, 1)}</div>}
-          <div className="min-w-0 flex-1"><p className="text-sm font-medium text-white">{review.body || "Apresentação muito boa!"}</p><p className="mt-1 text-xs text-white/45">{review.author_name}</p><div className="mt-2 flex gap-0.5 text-[#FBBF24]">{Array.from({ length: 5 }, (_, i) => <Star key={i} className={`size-4 ${i < review.rating ? "fill-current" : "fill-transparent"}`} />)}</div></div>
+          <div className="min-w-0 flex-1"><p className="break-words text-sm font-medium text-white [overflow-wrap:anywhere]">{review.body || "Apresentação muito boa!"}</p><p className="mt-1 break-words text-xs text-white/45 [overflow-wrap:anywhere]">{review.author_name}</p><div className="mt-2 flex gap-0.5 text-[#FBBF24]">{Array.from({ length: 5 }, (_, i) => <Star key={i} className={`size-4 ${i < review.rating ? "fill-current" : "fill-transparent"}`} />)}</div></div>
         </div>
       </article>)}
     </div>

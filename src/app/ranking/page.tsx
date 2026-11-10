@@ -6,17 +6,18 @@ import { Footer } from "@/components/layout/footer";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { Navbar } from "@/components/layout/navbar";
 import { featuredArtists, type Artist } from "@/lib/artists";
-import { combineRating, DEMO_REVIEWS } from "@/lib/demo-reviews";
+import { DEMO_REVIEWS } from "@/lib/demo-reviews";
 import { isSupabaseConfigured } from "@/utils/supabase/config";
 import { createClient } from "@/utils/supabase/server";
 
 export const metadata: Metadata = { title: "Ranking de artistas" };
 
-type RankedArtist = Artist & { average: number; reviewCount: number };
+type RankedArtist = Artist & { average: number; reviewCount: number; totalStars: number };
 
 async function getRanking(): Promise<RankedArtist[]> {
   let artists = featuredArtists;
   let reviews = DEMO_REVIEWS;
+  let recordedRatings: { artistId: string; rating: number }[] = [];
 
   if (isSupabaseConfigured()) {
     const supabase = await createClient();
@@ -48,11 +49,12 @@ async function getRanking(): Promise<RankedArtist[]> {
     }));
 
     if (artists.length > 0) {
-      const { data: reviewRows } = await supabase
-        .from("demo_reviews")
-        .select("id, artist_id, author_name, body, rating, created_at")
-        .in("artist_id", artists.map((artist) => artist.id))
-        .order("created_at", { ascending: false });
+      const artistIds = artists.map((artist) => artist.id);
+      const [{ data: ratingRows }, { data: reviewRows }] = await Promise.all([
+        supabase.from("reviews").select("artist_id, rating").in("artist_id", artistIds),
+        supabase.from("demo_reviews").select("id, artist_id, author_name, body, rating, created_at").in("artist_id", artistIds).order("created_at", { ascending: false }),
+      ]);
+      recordedRatings = (ratingRows ?? []).map((rating) => ({ artistId: rating.artist_id, rating: Number(rating.rating) }));
       reviews = (reviewRows ?? []).map((review) => ({
         id: review.id,
         artistId: review.artist_id,
@@ -67,19 +69,27 @@ async function getRanking(): Promise<RankedArtist[]> {
   return artists
     .map((artist) => {
       const artistReviews = reviews.filter((review) => review.artistId === artist.id);
-      const { rating, count } = combineRating(artist.rating, artist.reviews, artistReviews);
-      return { ...artist, average: rating, reviewCount: count };
+      const artistRatings = recordedRatings.filter((rating) => rating.artistId === artist.id);
+      const realReviewCount = artistRatings.length > 0 ? artistRatings.length : Math.max(0, artist.reviews);
+      const realStars = artistRatings.length > 0
+        ? artistRatings.reduce((sum, review) => sum + review.rating, 0)
+        : Math.round(Math.max(0, artist.rating) * realReviewCount);
+      const demoStars = artistReviews.reduce((sum, review) => sum + review.rating, 0);
+      const reviewCount = realReviewCount + artistReviews.length;
+      const totalStars = realStars + demoStars;
+      return { ...artist, average: reviewCount ? totalStars / reviewCount : 0, reviewCount, totalStars };
     })
-    .sort((a, b) => b.average - a.average || b.reviewCount - a.reviewCount || a.name.localeCompare(b.name, "pt-BR"));
+    .sort((a, b) => b.totalStars - a.totalStars || b.average - a.average || b.reviewCount - a.reviewCount || a.name.localeCompare(b.name, "pt-BR"));
 }
 
-function RatingStars({ rating }: { rating: number }) {
+function RatingStars({ rating, totalStars }: { rating: number; totalStars: number }) {
   return (
-    <span className="flex items-center gap-1.5" aria-label={rating ? `Nota ${rating.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} de 5` : "Sem avaliações"}>
+    <span className="flex items-center gap-1.5" aria-label={rating ? `${totalStars} estrelas acumuladas, média ${rating.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} de 5` : "Sem avaliações"}>
       <span className="flex items-center gap-0.5 text-[#FCB83D]" aria-hidden="true">
         {Array.from({ length: 5 }, (_, index) => <Star key={index} className={`size-4 sm:size-[18px] ${index < Math.round(rating) ? "fill-[#FCB83D]" : "fill-transparent"}`} strokeWidth={2.5} />)}
       </span>
       <span className="text-xs font-semibold text-white/70">{rating ? rating.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : "--"}</span>
+      <span className="rounded-md bg-[#FCB83D]/10 px-1.5 py-0.5 text-[10px] font-bold text-[#FCB83D]">Σ {totalStars}</span>
     </span>
   );
 }
@@ -115,7 +125,7 @@ export default async function RankingPage() {
 
           <div className="relative z-10 mx-4 mt-20 rounded-t-[28px] border-x border-t border-[#711EC9] bg-[#090705]/85 px-4 pb-8 pt-6 backdrop-blur-[2px] sm:mx-10 sm:mt-24 sm:px-8 lg:mx-auto lg:mt-16 lg:w-[72%] lg:rounded-t-[34px] lg:px-12 lg:pt-8">
             {podium.length > 0 && <div className="mb-5 flex justify-center" aria-label={`Artista em primeiro lugar: ${podium[0].name}`}>
-              <RatingStars rating={podium[0].average} />
+              <RatingStars rating={podium[0].average} totalStars={podium[0].totalStars} />
             </div>}
 
             <div className="mx-auto max-w-[650px] space-y-4 sm:space-y-5 lg:space-y-6">
@@ -138,14 +148,14 @@ export default async function RankingPage() {
                     <Link href={`/perfil?artista=${encodeURIComponent(artist.id)}`} className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/65 px-3 py-2.5 transition hover:border-[#711EC9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#BA3BE7]">
                       <span className="w-8 text-sm font-bold text-white/55">{index + 4}°</span>
                       <span className="min-w-0 flex-1 truncate text-sm font-medium">{artist.name}</span>
-                      <RatingStars rating={artist.average} />
+                      <RatingStars rating={artist.average} totalStars={artist.totalStars} />
                     </Link>
                   </li>
                 ))}
               </ol>
             </div>}
 
-            <p className="mt-6 text-center text-[11px] text-white/45">Ranking calculado pelas avaliações recebidas</p>
+            <p className="mt-6 text-center text-[11px] text-white/45">Ranking ordenado pelo total de estrelas acumuladas; a média desempata.</p>
           </div>
         </section>
       </main>

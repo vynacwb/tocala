@@ -246,6 +246,10 @@ export function ContractDemoFlow({ artist }: { artist: Artist }) {
           toast("Entre na sua conta para compartilhar a avaliação com os outros participantes.", "error");
           return;
         }
+        if (user.id === artist.id) {
+          toast("Você não pode enviar uma avaliação para o próprio perfil.", "error");
+          return;
+        }
         const oldReviews = readStoredDemoReviews().filter((review) => review.artistId === artist.id && /^[0-9a-f-]{36}$/i.test(review.artistId));
         const submissions = [
           ...oldReviews.map((review) => ({ source_id: review.id, artist_id: review.artistId, author_id: user.id, author_name: review.authorName, body: review.comment, rating: review.rating })),
@@ -253,7 +257,10 @@ export function ContractDemoFlow({ artist }: { artist: Artist }) {
         ];
         const { error } = await supabase.from("demo_reviews").upsert(submissions, { onConflict: "source_id", ignoreDuplicates: true });
         if (error) {
-          toast("Não foi possível compartilhar a avaliação. Aplique a atualização do schema do Supabase e tente novamente.", "error");
+          console.error("Falha ao salvar avaliação fictícia no Supabase:", { code: error.code, message: error.message, details: error.details, hint: error.hint });
+          toast(error.code === "42501"
+            ? "O Supabase bloqueou a avaliação. Confira se o perfil do artista está público e se você não está avaliando a própria conta."
+            : "Não foi possível compartilhar a avaliação. Execute demo_reviews_migration.sql no SQL Editor do Supabase e tente novamente.", "error");
           return;
         }
         removeStoredDemoReviews(oldReviews.map((review) => review.id));
@@ -282,24 +289,24 @@ export function ContractDemoFlow({ artist }: { artist: Artist }) {
     return <div className="space-y-3 rounded-2xl border border-white/10 bg-[#151517] p-4 sm:p-5">
       <div className="flex items-center gap-3 border-b border-white/10 pb-3">
         <Image src={artist.imageUrl} alt="" width={48} height={48} unoptimized className="size-12 rounded-xl object-cover" />
-        <div><p className="font-semibold">{artist.name}</p><p className="mt-0.5 text-xs text-white/50">{artist.genre}</p></div>
+        <div className="min-w-0"><p className="break-words font-semibold [overflow-wrap:anywhere]">{artist.name}</p><p className="mt-0.5 break-words text-xs text-white/50 [overflow-wrap:anywhere]">{artist.genre}</p></div>
       </div>
-      <h3 className="font-semibold">{draft.eventTitle || "Apresentação musical"}</h3>
-      <p className="flex items-start gap-2 text-sm text-white/65"><CalendarDays className="mt-0.5 size-4 shrink-0 text-[#D6A0FF]" />{formatEventDate(draft.eventDate)}</p>
-      <p className="flex items-start gap-2 text-sm text-white/65"><Clock3 className="mt-0.5 size-4 shrink-0 text-[#D6A0FF]" />Início {draft.startTime || "a definir"}{draft.endTime ? ` · término ${draft.endTime}${finishesNextDay ? ` (${formatEventDate(followingDate(draft.eventDate))}, dia seguinte)` : ""}` : ""} · {draft.performanceMinutes} min</p>
-      <p className="flex items-start gap-2 text-sm text-white/65"><MapPin className="mt-0.5 size-4 shrink-0 text-[#D6A0FF]" />{draft.venueName || "Local a definir"}{draft.venueAddress ? ` · ${draft.venueAddress}` : ""}</p>
+      <h3 className="break-words font-semibold [overflow-wrap:anywhere]">{draft.eventTitle || "Apresentação musical"}</h3>
+      <p className="flex items-start gap-2 text-sm text-white/65"><CalendarDays className="mt-0.5 size-4 shrink-0 text-[#D6A0FF]" /><span className="min-w-0 break-words [overflow-wrap:anywhere]">{formatEventDate(draft.eventDate)}</span></p>
+      <p className="flex items-start gap-2 text-sm text-white/65"><Clock3 className="mt-0.5 size-4 shrink-0 text-[#D6A0FF]" /><span className="min-w-0 break-words [overflow-wrap:anywhere]">Início {draft.startTime || "a definir"}{draft.endTime ? ` · término ${draft.endTime}${finishesNextDay ? ` (${formatEventDate(followingDate(draft.eventDate))}, dia seguinte)` : ""}` : ""} · {draft.performanceMinutes} min</span></p>
+      <p className="flex items-start gap-2 text-sm text-white/65"><MapPin className="mt-0.5 size-4 shrink-0 text-[#D6A0FF]" /><span className="min-w-0 break-words [overflow-wrap:anywhere]">{draft.venueName || "Local a definir"}{draft.venueAddress ? ` · ${draft.venueAddress}` : ""}</span></p>
       <div className="grid grid-cols-2 gap-2 pt-1 text-xs text-white/55">
-        <span>Chegada: {draft.arrivalMinutes} min antes</span><span>Tipo: {draft.venueType}</span>
-        <span className="font-medium text-white/75">Valor proposto: {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(draft.fee))}</span>
+        <span className="min-w-0 break-words [overflow-wrap:anywhere]">Chegada: {draft.arrivalMinutes} min antes</span><span className="min-w-0 break-words [overflow-wrap:anywhere]">Tipo: {draft.venueType}</span>
+        <span className="col-span-2 min-w-0 break-words font-medium text-white/75 [overflow-wrap:anywhere]">Valor proposto: {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(draft.fee))}</span>
       </div>
-      <ul className="space-y-1 border-t border-white/10 pt-3 text-xs text-white/55">
+      <ul className="space-y-1 border-t border-white/10 pt-3 text-xs text-white/55 [&>li]:break-words [&>li]:[overflow-wrap:anywhere]">
         <li>Locomoção por conta do artista: {draft.transportationByArtist ? "Sim" : "Não"}</li>
         <li>Alimentação fornecida: {draft.mealProvided ? "Sim" : "Não"}</li>
         <li>Hospedagem fornecida: {draft.lodgingProvided ? "Sim" : "Não"}</li>
         <li>Passagem de som: {draft.soundCheck ? "Sim" : "Não"}</li>
         <li>Equipamento de som no local: {draft.equipmentProvided ? "Sim" : "Não"}</li>
       </ul>
-      {draft.extraTerms && <p className="border-t border-white/10 pt-3 text-xs leading-relaxed text-white/55">Outras informações: {draft.extraTerms}</p>}
+      {draft.extraTerms && <p className="min-w-0 break-words border-t border-white/10 pt-3 text-xs leading-relaxed text-white/55 [overflow-wrap:anywhere]">Outras informações: {draft.extraTerms}</p>}
     </div>;
   }
 
@@ -355,7 +362,7 @@ export function ContractDemoFlow({ artist }: { artist: Artist }) {
               <CheckOption checked={draft.venueConfirmed} onChange={(value) => update("venueConfirmed", value)}>Local confirmado</CheckOption>
             </div>
           </div>
-          <Field label="Outras condições ou observações (opcional)"><textarea value={draft.extraTerms} onChange={(event) => update("extraTerms", event.target.value)} maxLength={1200} rows={3} placeholder="Detalhes adicionais para conversar com o artista" className="w-full resize-y rounded-xl border border-white/10 bg-[#101010]/70 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20" /></Field>
+          <Field label="Outras condições ou observações (opcional)"><textarea value={draft.extraTerms} onChange={(event) => update("extraTerms", event.target.value)} maxLength={1200} rows={3} wrap="soft" placeholder="Detalhes adicionais para conversar com o artista" className="min-w-0 w-full resize-y break-words rounded-xl border border-white/10 bg-[#101010]/70 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20 [overflow-wrap:anywhere]" /></Field>
           <button type="submit" className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#6C1EE7] px-5 text-sm font-semibold text-white transition hover:bg-[#BA3BE7]">Revisar contrato fictício <ArrowRight className="size-4" /></button>
         </form>
       </section>}
@@ -393,7 +400,7 @@ export function ContractDemoFlow({ artist }: { artist: Artist }) {
         <div className="mt-4"><CheckOption checked={artistAccepted} onChange={setArtistAccepted}>Confirmo, como artista, que aceito os detalhes desta proposta fictícia.</CheckOption></div>
         <button type="button" disabled={!artistAccepted} onClick={() => setStage("escrow")} className="mt-3 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#6C1EE7] px-5 text-sm font-semibold text-white transition hover:bg-[#BA3BE7] disabled:cursor-not-allowed disabled:opacity-45">Aceitar contrato fictício <Check className="size-4" /></button>
         <div className="my-5 border-t border-white/10" />
-        <Field label="Ou descreva um ajuste para a proposta"><textarea value={changeRequest} onChange={(event) => setChangeRequest(event.target.value)} maxLength={800} rows={3} placeholder="Ex.: preciso alterar o horário de chegada para 90 minutos antes" className="w-full resize-y rounded-xl border border-white/10 bg-[#101010]/70 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20" /></Field>
+        <Field label="Ou descreva um ajuste para a proposta"><textarea value={changeRequest} onChange={(event) => setChangeRequest(event.target.value)} maxLength={800} rows={3} wrap="soft" placeholder="Ex.: preciso alterar o horário de chegada para 90 minutos antes" className="min-w-0 w-full resize-y break-words rounded-xl border border-white/10 bg-[#101010]/70 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20 [overflow-wrap:anywhere]" /></Field>
         <button type="button" disabled={!changeRequest.trim()} onClick={() => setStage("adjustment")} className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-xl border border-white/15 text-sm font-semibold text-white/80 transition hover:border-[#BA3BE7] hover:text-white disabled:cursor-not-allowed disabled:opacity-40">Solicitar ajuste</button>
       </section>}
 
@@ -401,7 +408,7 @@ export function ContractDemoFlow({ artist }: { artist: Artist }) {
         <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#D6A0FF]">Contraproposta fictícia</p>
         <h1 className="mt-2 text-2xl font-bold">O artista sugeriu um ajuste</h1>
         <p className="mt-2 text-sm text-white/55">Em um fluxo real, o contratante poderia responder ou negociar novamente.</p>
-        <blockquote className="mt-5 rounded-xl border-l-2 border-[#BA3BE7] bg-[#101010]/50 p-4 text-sm leading-relaxed text-white/75">“{changeRequest}”</blockquote>
+        <blockquote className="mt-5 min-w-0 max-w-full break-words whitespace-pre-wrap rounded-xl border-l-2 border-[#BA3BE7] bg-[#101010]/50 p-4 text-sm leading-relaxed text-white/75 [overflow-wrap:anywhere]">“{changeRequest}”</blockquote>
         <div className="mt-5">{summary()}</div>
         <button type="button" onClick={() => { update("extraTerms", [draft.extraTerms, `Ajuste simulado aceito: ${changeRequest}`].filter(Boolean).join("\n")); setArtistAccepted(true); setStage("escrow"); }} className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#6C1EE7] px-5 text-sm font-semibold text-white transition hover:bg-[#BA3BE7]">Simular aceite do ajuste <Check className="size-4" /></button>
         <button type="button" onClick={() => setStage("details")} className="mt-2 h-11 w-full rounded-xl border border-white/15 text-sm text-white/70 transition hover:bg-white/5">Voltar e alterar proposta</button>
@@ -437,7 +444,7 @@ export function ContractDemoFlow({ artist }: { artist: Artist }) {
           })}
         </div>
         <p className="mt-2 text-center text-sm font-semibold text-amber-100">{reviewRating} de 5 estrelas</p>
-        <div className="mt-6"><Field label="Comentário (opcional)"><textarea value={reviewComment} onChange={(event) => setReviewComment(event.target.value)} rows={4} maxLength={800} placeholder="Conte o que achou da apresentação" className="w-full resize-y rounded-xl border border-white/10 bg-[#101010]/70 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20" /></Field></div>
+        <div className="mt-6"><Field label="Comentário (opcional)"><textarea value={reviewComment} onChange={(event) => setReviewComment(event.target.value)} rows={4} maxLength={800} wrap="soft" placeholder="Conte o que achou da apresentação" className="min-w-0 w-full resize-y break-words rounded-xl border border-white/10 bg-[#101010]/70 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20 [overflow-wrap:anywhere]" /></Field></div>
         <button type="button" onClick={saveDemoReview} className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#6C1EE7] px-5 text-sm font-semibold text-white transition hover:bg-[#BA3BE7]">Enviar avaliação simulada e abrir perfil <ArrowRight className="size-4" /></button>
       </section>}
     </main>
