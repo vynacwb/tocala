@@ -122,6 +122,15 @@ function TimeField({ label, value, onChange, required = false }: { label: string
     setSelecting("hour");
   }
 
+  function chooseMinuteFromDial(event: React.MouseEvent<HTMLDivElement>) {
+    if (selecting !== "minute") return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const deltaX = event.clientX - (bounds.left + bounds.width / 2);
+    const deltaY = event.clientY - (bounds.top + bounds.height / 2);
+    const degrees = (Math.atan2(deltaY, deltaX) * 180 / Math.PI + 450) % 360;
+    chooseMinute(Math.round(degrees / 6) % 60);
+  }
+
   function openClock() {
     if (value) {
       setSelectedHour(Number(value.slice(0, 2)));
@@ -136,6 +145,8 @@ function TimeField({ label, value, onChange, required = false }: { label: string
     const angle = (index * 30 - 90) * (Math.PI / 180);
     return { left: `calc(50% + ${Math.round(Math.cos(angle) * radius)}px)`, top: `calc(50% + ${Math.round(Math.sin(angle) * radius)}px)` };
   };
+  const handAngle = selecting === "hour" ? (selectedHour % 12) * 30 : selectedMinute * 6;
+  const handLength = selecting === "hour" && selectedHour >= 12 ? 58 : 98;
 
   return <div>
     <span className="mb-2 block text-sm font-medium text-white/80">{label}</span>
@@ -146,16 +157,24 @@ function TimeField({ label, value, onChange, required = false }: { label: string
       <button type="button" onClick={() => { if (mode === "clock") { setMode("typing"); setClockOpen(false); setTypedTime(value); } else { setMode("clock"); setSelectedHour(value ? Number(value.slice(0, 2)) : 19); setSelectedMinute(0); } }} aria-pressed={mode === "typing"} className="rounded-lg px-3 py-2 text-xs font-medium text-white/60 transition hover:bg-white/5 hover:text-white">{mode === "clock" ? "Digitar horário" : "Usar relógio"}</button>
       {mode === "typing" && <span className="self-center text-xs text-white/40">Digite 19 para completar 19:00.</span>}
     </div>
-    {clockOpen && mode === "clock" && <div className="relative z-20 mt-2 w-full max-w-[320px] rounded-2xl border border-white/10 bg-[#1A1A1D] p-4 shadow-2xl">
-      <div className="mb-3 flex items-center justify-between">
-        <div><p className="text-xs text-white/50">Escolha {selecting === "hour" ? "a hora" : "os minutos"}</p><p className="text-lg font-semibold tabular-nums">{String(selectedHour).padStart(2, "0")}:{String(selectedMinute).padStart(2, "0")}</p></div>
-        <button type="button" onClick={() => setClockOpen(false)} className="rounded-lg px-3 py-2 text-xs text-white/60 hover:bg-white/5">Fechar</button>
+    {clockOpen && mode === "clock" && <div className="relative z-20 mt-2 w-full max-w-[360px] rounded-2xl border border-white/10 bg-[#1A1A1D] p-4 shadow-2xl sm:p-5">
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs text-white/50">{selecting === "hour" ? "Escolha a hora" : "Escolha os minutos"}</p>
+          <div className="mt-2 flex items-center gap-1.5 font-semibold tabular-nums">
+            <button type="button" onClick={() => setSelecting("hour")} aria-label="Selecionar hora" aria-pressed={selecting === "hour"} className={`rounded-lg px-2.5 py-1 text-2xl transition ${selecting === "hour" ? "bg-[#6C1EE7] text-white ring-2 ring-[#BA3BE7]/60" : "bg-white/[0.06] text-white/70 hover:bg-white/10"}`}>{String(selectedHour).padStart(2, "0")}</button>
+            <span className="text-2xl text-white/60">:</span>
+            <button type="button" onClick={() => setSelecting("minute")} aria-label="Selecionar minutos" aria-pressed={selecting === "minute"} className={`rounded-lg px-2.5 py-1 text-2xl transition ${selecting === "minute" ? "bg-[#6C1EE7] text-white ring-2 ring-[#BA3BE7]/60" : "bg-white/[0.06] text-white/70 hover:bg-white/10"}`}>{String(selectedMinute).padStart(2, "0")}</button>
+          </div>
+        </div>
+        <button type="button" onClick={() => setClockOpen(false)} className="rounded-lg px-3 py-2 text-xs font-medium text-white/60 hover:bg-white/5 hover:text-white">Fechar</button>
       </div>
-      <div className="relative mx-auto size-[248px] rounded-full bg-[#29292D]">
-        {selecting === "hour" ? <>{Array.from({ length: 12 }, (_, index) => <button key={`outer-${index}`} type="button" onClick={() => chooseHour(index)} style={dialPosition(index, 98)} className={`absolute flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-xs transition ${selectedHour === index ? "bg-[#6C1EE7] text-white" : "text-white/80 hover:bg-white/10"}`}>{String(index).padStart(2, "0")}</button>)}{Array.from({ length: 12 }, (_, index) => { const hour = index + 12; return <button key={`inner-${hour}`} type="button" onClick={() => chooseHour(hour)} style={dialPosition(index, 58)} className={`absolute flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-xs transition ${selectedHour === hour ? "bg-[#6C1EE7] text-white" : "text-white/65 hover:bg-white/10"}`}>{hour}</button>; })}</> : Array.from({ length: 12 }, (_, index) => { const minute = index * 5; return <button key={`minute-${minute}`} type="button" onClick={() => chooseMinute(minute)} style={dialPosition(index, 98)} className={`absolute flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-xs transition ${selectedMinute === minute ? "bg-[#6C1EE7] text-white" : "text-white/80 hover:bg-white/10"}`}>{String(minute).padStart(2, "0")}</button>; })}
-        <span className="absolute left-1/2 top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#BA3BE7]" />
+      <div onClick={chooseMinuteFromDial} className={`relative mx-auto size-[248px] touch-manipulation rounded-full bg-[#29292D] sm:size-[280px] ${selecting === "minute" ? "cursor-crosshair" : ""}`} aria-label={selecting === "hour" ? "Mostrador de horas: números externos de 0 a 11 e internos de 12 a 23" : "Mostrador de minutos: toque para escolher minutos exatos"}>
+        {selecting === "hour" ? <>{Array.from({ length: 12 }, (_, index) => <button key={`outer-${index}`} type="button" onClick={() => chooseHour(index)} style={dialPosition(index, 98)} className={`absolute z-10 flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-xs transition sm:size-9 ${selectedHour === index ? "bg-[#6C1EE7] text-white ring-2 ring-[#D6A0FF]/60" : "text-white/85 hover:bg-white/10"}`}>{index}</button>)}{Array.from({ length: 12 }, (_, index) => { const hour = index + 12; return <button key={`inner-${hour}`} type="button" onClick={() => chooseHour(hour)} style={dialPosition(index, 58)} className={`absolute z-10 flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-xs transition sm:size-9 ${selectedHour === hour ? "bg-[#6C1EE7] text-white ring-2 ring-[#D6A0FF]/60" : "text-white/70 hover:bg-white/10"}`}>{hour}</button>; })}</> : Array.from({ length: 12 }, (_, index) => { const minute = index * 5; return <button key={`minute-${minute}`} type="button" onClick={(event) => { event.stopPropagation(); chooseMinute(minute); }} style={dialPosition(index, 98)} aria-label={`${String(minute).padStart(2, "0")} minutos`} className={`absolute z-10 flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-xs transition sm:size-9 ${selectedMinute === minute ? "bg-[#6C1EE7] text-white ring-2 ring-[#D6A0FF]/60" : "text-white/85 hover:bg-white/10"}`}>{String(minute).padStart(2, "0")}</button>; })}
+        <span aria-hidden="true" className="absolute z-[1] w-0.5 rounded-full bg-[#BA3BE7]" style={{ left: "calc(50% - 1px)", top: `calc(50% - ${handLength}px)`, height: `${handLength}px`, transform: `rotate(${handAngle}deg)`, transformOrigin: "50% 100%" }} />
+        <span className="absolute left-1/2 top-1/2 z-[2] size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#BA3BE7] shadow-[0_0_10px_#BA3BE7]" />
       </div>
-      {selecting === "minute" && <button type="button" onClick={() => setSelecting("hour")} className="mt-3 w-full rounded-lg py-2 text-xs text-[#D6A0FF] hover:bg-white/5">Voltar para as horas</button>}
+      {selecting === "minute" && <div className="mt-3 flex items-center justify-between gap-3 text-xs text-white/45"><button type="button" onClick={() => setSelecting("hour")} className="rounded-lg px-2 py-1 text-[#D6A0FF] hover:bg-white/5">Voltar para a hora</button><span>Toque no mostrador para escolher o minuto exato</span></div>}
     </div>}
   </div>;
 }
