@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ContractDemoFlow } from "@/components/contracts/contract-demo-flow";
 import { featuredArtists } from "@/lib/artists";
+import { DEMO_REVIEWS } from "@/lib/demo-reviews";
+import { rankArtists } from "@/lib/artist-ranking";
+import { getArtistRankingPosition } from "@/lib/artist-ranking.server";
 import { isSupabaseConfigured } from "@/utils/supabase/config";
 import { createClient } from "@/utils/supabase/server";
 
@@ -12,7 +15,7 @@ export default async function NewContractPage({ searchParams }: { searchParams: 
   const { artista: artistId } = await searchParams;
   if (!artistId) notFound();
 
-  let artist: { id: string; name: string; genre: string; imageUrl: string };
+  let artist: { id: string; name: string; genre: string; imageUrl: string; rankingPosition?: number };
   if (isSupabaseConfigured()) {
     if (!/^[0-9a-f-]{36}$/i.test(artistId)) notFound();
     const supabase = await createClient();
@@ -29,10 +32,12 @@ export default async function NewContractPage({ searchParams }: { searchParams: 
       name: data.stage_name || data.real_name || data.full_name || data.username,
       genre: data.genre || "Artista",
       imageUrl: data.avatar_url || featuredArtists[0].imageUrl,
+      rankingPosition: await getArtistRankingPosition(artistId),
     };
   } else {
     const sample = featuredArtists.find((item) => item.id === artistId) ?? featuredArtists[0];
-    artist = { id: sample.id, name: sample.name, genre: sample.genre, imageUrl: sample.imageUrl };
+    const rankingPosition = rankArtists(featuredArtists, [], DEMO_REVIEWS.map((review) => ({ artistId: review.artistId, rating: review.rating }))).find((item) => item.id === sample.id)?.rankingPosition;
+    artist = { id: sample.id, name: sample.name, genre: sample.genre, imageUrl: sample.imageUrl, rankingPosition };
   }
 
   return <ContractDemoFlow artist={artist} />;

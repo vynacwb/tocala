@@ -11,8 +11,9 @@ import { ArrowLeft, ArrowRight, CalendarDays, Check, CircleAlert, Clock3, MapPin
 import { Brand } from "@/components/layout/brand";
 import { useToast } from "@/components/providers/app-providers";
 import { dateKey } from "@/lib/availability";
+import { RankingMedal } from "@/components/ranking/ranking-medal";
 
-type Artist = { id: string; name: string; genre: string; imageUrl: string };
+type Artist = { id: string; name: string; genre: string; imageUrl: string; rankingPosition?: number };
 type Stage = "details" | "contract" | "sent" | "artist" | "adjustment" | "escrow" | "checkin" | "review";
 type Draft = {
   eventTitle: string; eventDate: string; startTime: string; endTime: string; venueName: string; venueAddress: string; venueType: string;
@@ -289,7 +290,7 @@ export function ContractDemoFlow({ artist }: { artist: Artist }) {
     return <div className="space-y-3 rounded-2xl border border-white/10 bg-[#151517] p-4 sm:p-5">
       <div className="flex items-center gap-3 border-b border-white/10 pb-3">
         <Image src={artist.imageUrl} alt="" width={48} height={48} unoptimized className="size-12 rounded-xl object-cover" />
-        <div className="min-w-0"><p className="break-words font-semibold [overflow-wrap:anywhere]">{artist.name}</p><p className="mt-0.5 break-words text-xs text-white/50 [overflow-wrap:anywhere]">{artist.genre}</p></div>
+        <div className="min-w-0"><p className="flex items-center gap-2 break-words font-semibold [overflow-wrap:anywhere]">{artist.name}<RankingMedal position={artist.rankingPosition} compact /></p><p className="mt-0.5 break-words text-xs text-white/50 [overflow-wrap:anywhere]">{artist.genre}</p></div>
       </div>
       <h3 className="break-words font-semibold [overflow-wrap:anywhere]">{draft.eventTitle || "Apresentação musical"}</h3>
       <p className="flex items-start gap-2 text-sm text-white/65"><CalendarDays className="mt-0.5 size-4 shrink-0 text-[#D6A0FF]" /><span className="min-w-0 break-words [overflow-wrap:anywhere]">{formatEventDate(draft.eventDate)}</span></p>

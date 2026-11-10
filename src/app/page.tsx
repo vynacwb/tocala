@@ -9,7 +9,8 @@ import { ArtistCard } from "@/components/home/artist-card";
 import { SearchPanel } from "@/components/home/search-panel";
 import { featuredArtists } from "@/lib/artists";
 import type { Artist } from "@/lib/artists";
-import type { DemoReview } from "@/lib/demo-reviews";
+import { DEMO_REVIEWS, type DemoReview } from "@/lib/demo-reviews";
+import { rankArtists } from "@/lib/artist-ranking";
 import { MUSIC_GENRES, normalizeGenre } from "@/lib/genres";
 import { MUSIC_INSTRUMENTS, normalizeInstrument } from "@/lib/instruments";
 import { AvailabilityStatus, parseDateKey } from "@/lib/availability";
@@ -34,6 +35,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   let initialInstruments: string[] = [];
   let artists: Artist[] = featuredArtists;
   let sharedDemoReviews: DemoReview[] = [];
+  let realRatings: { artistId: string; rating: number }[] = [];
 
   if (isSupabaseConfigured()) {
     const supabase = await createClient();
@@ -44,7 +46,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       .eq("status", "ATIVO")
       .eq("profile_visible", true)
       .order("updated_at", { ascending: false })
-      .limit(100);
+      .limit(1000);
 
     artists = (data ?? []).map((artist) => ({
       id: artist.id,
@@ -65,10 +67,12 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     }));
 
     if (artists.length > 0) {
-      const { data: demoRows } = await supabase.from("demo_reviews")
-        .select("id, artist_id, author_name, body, rating, created_at")
-        .in("artist_id", artists.map((artist) => artist.id))
-        .order("created_at", { ascending: false });
+      const artistIds = artists.map((artist) => artist.id);
+      const [{ data: ratingRows }, { data: demoRows }] = await Promise.all([
+        supabase.from("reviews").select("artist_id, rating").in("artist_id", artistIds),
+        supabase.from("demo_reviews").select("id, artist_id, author_name, body, rating, created_at").in("artist_id", artistIds).order("created_at", { ascending: false }),
+      ]);
+      realRatings = (ratingRows ?? []).map((review) => ({ artistId: review.artist_id, rating: Number(review.rating) }));
       sharedDemoReviews = (demoRows ?? []).map((review) => ({
         id: review.id,
         artistId: review.artist_id,
@@ -80,6 +84,13 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       artists = artists.map((artist) => ({ ...artist, demoReviews: sharedDemoReviews.filter((review) => review.artistId === artist.id) }));
     }
   }
+
+  const ranking = rankArtists(
+    artists,
+    realRatings,
+    (isSupabaseConfigured() ? sharedDemoReviews : DEMO_REVIEWS).map((review) => ({ artistId: review.artistId, rating: review.rating })),
+  );
+  artists = ranking.map(({ rankingPosition, rankingPoints, ...artist }) => ({ ...artist, rankingPosition, rankingPoints }));
 
   initialInstruments = [...new Set(requestedInstruments.flatMap((value) => value.split(",")).map((instrument) => instrument.trim()).filter((instrument) => availableInstruments.has(instrument)))];
 
@@ -116,7 +127,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       }
     }
     return matchesText && matchesGenre && matchesInstrument && matchesAvailability;
-  });
+  }).sort((a, b) => (a.rankingPosition ?? Number.MAX_SAFE_INTEGER) - (b.rankingPosition ?? Number.MAX_SAFE_INTEGER));
   const noResultsMessage = busca
     ? `Nenhum perfil encontrado para “${busca}”.`
     : initialGenres.length > 0

@@ -8,13 +8,14 @@ import { Navbar } from "@/components/layout/navbar";
 import { featuredArtists, type Artist } from "@/lib/artists";
 import { DEMO_REVIEWS } from "@/lib/demo-reviews";
 import { RankingPointsBadge } from "@/components/ranking/ranking-points-badge";
-import { getRankingPoints } from "@/lib/ranking-points";
+import { RankingMedal } from "@/components/ranking/ranking-medal";
+import { rankArtists } from "@/lib/artist-ranking";
 import { isSupabaseConfigured } from "@/utils/supabase/config";
 import { createClient } from "@/utils/supabase/server";
 
 export const metadata: Metadata = { title: "Ranking de artistas" };
 
-type RankedArtist = Artist & { average: number; reviewCount: number; totalStars: number };
+type RankedArtist = Artist & { average: number; reviewCount: number; totalStars: number; rankingPosition: number; rankingPoints: number };
 
 async function getRanking(): Promise<RankedArtist[]> {
   let artists = featuredArtists;
@@ -30,7 +31,7 @@ async function getRanking(): Promise<RankedArtist[]> {
       .eq("status", "ATIVO")
       .eq("profile_visible", true)
       .order("updated_at", { ascending: false })
-      .limit(100);
+      .limit(1000);
 
     artists = (data ?? []).map((profile) => ({
       id: profile.id,
@@ -68,21 +69,8 @@ async function getRanking(): Promise<RankedArtist[]> {
     }
   }
 
-  return artists
-    .map((artist) => {
-      const artistReviews = reviews.filter((review) => review.artistId === artist.id);
-      const artistRatings = recordedRatings.filter((rating) => rating.artistId === artist.id);
-      const realReviewCount = artistRatings.length > 0 ? artistRatings.length : Math.max(0, artist.reviews);
-      const totalStars = getRankingPoints({
-        profileRating: artist.rating,
-        profileReviewCount: realReviewCount,
-        reviewRatings: artistRatings.map((review) => review.rating),
-        demoReviewRatings: artistReviews.map((review) => review.rating),
-      });
-      const reviewCount = realReviewCount + artistReviews.length;
-      return { ...artist, average: reviewCount ? totalStars / reviewCount : 0, reviewCount, totalStars };
-    })
-    .sort((a, b) => b.totalStars - a.totalStars || b.average - a.average || b.reviewCount - a.reviewCount || a.name.localeCompare(b.name, "pt-BR"));
+  return rankArtists(artists, recordedRatings, reviews.map((review) => ({ artistId: review.artistId, rating: review.rating })))
+    .map((artist) => ({ ...artist, totalStars: artist.rankingPoints }));
 }
 
 function RatingStars({ rating, totalStars }: { rating: number; totalStars: number }) {
@@ -136,6 +124,7 @@ export default async function RankingPage() {
                 <Link key={artist.id} href={`/perfil?artista=${encodeURIComponent(artist.id)}`} className={`group flex min-h-[66px] items-center gap-3 rounded-[17px] border-2 bg-black px-3 py-2 text-white transition hover:-translate-y-0.5 hover:border-[#BA3BE7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#BA3BE7] sm:min-h-[78px] sm:gap-5 sm:px-5 ${placeStyles[index]} ${index === 0 ? "border-[3px]" : ""}`}>
                   <span className={`min-w-[54px] text-left font-bold leading-none sm:min-w-[78px] ${index === 0 ? "text-[36px] sm:text-[48px]" : index === 1 ? "text-[32px] sm:text-[42px]" : "text-[26px] sm:text-[34px]"}`}>{index + 1}°</span>
                   <span className={`min-w-0 flex-1 truncate text-center font-semibold ${index === 0 ? "text-[19px] sm:text-[28px]" : index === 1 ? "text-[17px] sm:text-[24px]" : "text-[15px] sm:text-[20px]"}`}>{artist.name}</span>
+                  <RankingMedal position={artist.rankingPosition} compact />
                   <RankingPointsBadge compact points={artist.totalStars} />
                   <span className="sr-only">, nota {artist.average ? artist.average.toLocaleString("pt-BR", { maximumFractionDigits: 1 }) : "sem avaliações"}, {artist.reviewCount} avaliações</span>
                 </Link>
@@ -153,6 +142,7 @@ export default async function RankingPage() {
                       <span className="w-8 text-sm font-bold text-white/55">{index + 4}°</span>
                       <span className="min-w-0 flex-1 truncate text-sm font-medium">{artist.name}</span>
                       <div className="flex shrink-0 items-center gap-2">
+                        <RankingMedal position={artist.rankingPosition} compact />
                         <RatingStars rating={artist.average} totalStars={artist.totalStars} />
                         <RankingPointsBadge compact points={artist.totalStars} />
                       </div>

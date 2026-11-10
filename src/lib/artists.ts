@@ -17,6 +17,8 @@ export type Artist = {
   avatarPositionY?: number;
   bookingWeekdays?: number[];
   demoReviews?: DemoReview[];
+  rankingPosition?: number;
+  rankingPoints?: number;
 };
 
 export const featuredArtists: Artist[] = [

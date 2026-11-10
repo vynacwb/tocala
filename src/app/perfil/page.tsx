@@ -7,12 +7,16 @@ import { Brand } from "@/components/layout/brand";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { ProfileActionsMenu } from "@/components/profile/profile-actions-menu";
 import { ProfileRankingPoints, ProfileRatingSummary, ProfileReviews } from "@/components/profile/profile-ratings";
+import { RankingMedal } from "@/components/ranking/ranking-medal";
 import { Card } from "@/components/ui/card";
 import { SectionTitle } from "@/components/ui/section-title";
 import { SignOutButton } from "@/components/profile/sign-out-button";
 import { BOOKING_WEEKDAYS } from "@/lib/availability";
-import type { DemoReview } from "@/lib/demo-reviews";
+import { DEMO_REVIEWS, type DemoReview } from "@/lib/demo-reviews";
+import { rankArtists } from "@/lib/artist-ranking";
+import { featuredArtists } from "@/lib/artists";
 import { getRankingPoints } from "@/lib/ranking-points";
+import { getArtistRankingPosition } from "@/lib/artist-ranking.server";
 import { isSupabaseConfigured } from "@/utils/supabase/config";
 import { createClient } from "@/utils/supabase/server";
 
@@ -76,8 +80,11 @@ function whatsappUrl(phone: string) {
   return `https://wa.me/${digits.startsWith("55") ? digits : `55${digits}`}`;
 }
 
-async function getProfileData(publicArtistId?: string): Promise<{ profile: Profile; reviews: Review[]; demoReviews: DemoReview[]; rankingPoints: number; isPublicView: boolean; useLocalDemoReviews: boolean }> {
-  if (!isSupabaseConfigured()) return { profile: demoProfile, reviews: [], demoReviews: [], rankingPoints: getRankingPoints({ profileRating: demoProfile.rating, profileReviewCount: demoProfile.review_count }), isPublicView: Boolean(publicArtistId), useLocalDemoReviews: true };
+async function getProfileData(publicArtistId?: string): Promise<{ profile: Profile; reviews: Review[]; demoReviews: DemoReview[]; rankingPoints: number; rankingPosition?: number; isPublicView: boolean; useLocalDemoReviews: boolean }> {
+  if (!isSupabaseConfigured()) {
+    const rankingPosition = rankArtists(featuredArtists, [], DEMO_REVIEWS.map((review) => ({ artistId: review.artistId, rating: review.rating }))).find((artist) => artist.id === demoProfile.id)?.rankingPosition;
+    return { profile: demoProfile, reviews: [], demoReviews: [], rankingPoints: getRankingPoints({ profileRating: demoProfile.rating, profileReviewCount: demoProfile.review_count }), rankingPosition, isPublicView: Boolean(publicArtistId), useLocalDemoReviews: true };
+  }
 
   const supabase = await createClient();
 
@@ -119,7 +126,8 @@ async function getProfileData(publicArtistId?: string): Promise<{ profile: Profi
       reviewRatings: (ratingRows ?? []).map((review) => Number(review.rating)),
       demoReviewRatings: (demoRatingRows ?? []).map((review) => Number(review.rating)),
     });
-    return { profile, reviews: reviewsData ?? [], demoReviews: (demoReviewsData ?? []).map((review) => ({ id: review.id, artistId: review.artist_id, authorName: review.author_name, rating: review.rating, comment: review.body, createdAt: review.created_at })), rankingPoints, isPublicView: true, useLocalDemoReviews: false };
+    const rankingPosition = await getArtistRankingPosition(publicArtistId);
+    return { profile, reviews: reviewsData ?? [], demoReviews: (demoReviewsData ?? []).map((review) => ({ id: review.id, artistId: review.artist_id, authorName: review.author_name, rating: review.rating, comment: review.body, createdAt: review.created_at })), rankingPoints, rankingPosition, isPublicView: true, useLocalDemoReviews: false };
   }
 
   const { data: { user } } = await supabase.auth.getUser();
@@ -162,13 +170,14 @@ async function getProfileData(publicArtistId?: string): Promise<{ profile: Profi
     reviewRatings: (ratingRows ?? []).map((review) => Number(review.rating)),
     demoReviewRatings: (demoRatingRows ?? []).map((review) => Number(review.rating)),
   });
-  return { profile, reviews: reviewsData ?? [], demoReviews: (demoReviewsData ?? []).map((review) => ({ id: review.id, artistId: review.artist_id, authorName: review.author_name, rating: review.rating, comment: review.body, createdAt: review.created_at })), rankingPoints, isPublicView: false, useLocalDemoReviews: false };
+  const rankingPosition = await getArtistRankingPosition(user.id);
+  return { profile, reviews: reviewsData ?? [], demoReviews: (demoReviewsData ?? []).map((review) => ({ id: review.id, artistId: review.artist_id, authorName: review.author_name, rating: review.rating, comment: review.body, createdAt: review.created_at })), rankingPoints, rankingPosition, isPublicView: false, useLocalDemoReviews: false };
 }
 
 export default async function ProfilePage({ searchParams }: { searchParams: Promise<{ artista?: string }> }) {
   const { artista } = await searchParams;
   const configured = isSupabaseConfigured();
-  const { profile, reviews, demoReviews, rankingPoints, isPublicView, useLocalDemoReviews } = await getProfileData(artista);
+  const { profile, reviews, demoReviews, rankingPoints, rankingPosition, isPublicView, useLocalDemoReviews } = await getProfileData(artista);
   const bookingDays = BOOKING_WEEKDAYS.filter((day) => profile.booking_weekdays.includes(day.value));
 
   return (
@@ -205,7 +214,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
               <img src={profile.avatar_url} alt={`Retrato de ${profile.full_name}`} style={{ objectPosition: `${profile.avatar_position_x}% ${profile.avatar_position_y}%` }} className="h-full w-full object-cover" />
             </div>
             <div className="mt-5">
-              <h1 className="text-[28px] font-bold leading-tight tracking-[-0.04em] lg:text-[40px]">{profile.full_name}</h1>
+              <div className="flex items-center justify-center gap-2"><h1 className="text-[28px] font-bold leading-tight tracking-[-0.04em] lg:text-[40px]">{profile.full_name}</h1><RankingMedal position={rankingPosition} compact /></div>
               <p className="mt-1 text-sm text-white/60 lg:text-base">@{profile.username}</p>
               <div className="mt-3 flex flex-wrap justify-center gap-2">{(profile.genres.length > 0 ? profile.genres : [profile.genre]).map((genre) => <span key={genre} className="rounded-full bg-[#6C1EE7]/20 px-3 py-1 text-xs font-medium text-[#E4C9FF]">{genre}</span>)}</div>
               {(profile.city || profile.state) && <p className="mt-2 inline-flex items-center gap-1.5 text-sm text-white/55"><MapPin className="size-4 text-[#D6A0FF]" />{[profile.city, profile.state].filter(Boolean).join(", ")}</p>}
