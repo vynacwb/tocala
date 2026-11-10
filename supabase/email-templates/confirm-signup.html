@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <meta name="supported-color-schemes" content="dark">
+    <title>Confirme seu e-mail | TocaLá</title>
+  </head>
+  <body style="margin:0; padding:0; background-color:#101010; color:#f7f4fa; font-family:Arial,Helvetica,sans-serif;">
+    <div style="display:none; max-height:0; overflow:hidden; opacity:0; color:transparent;">
+      Confirme seu e-mail para concluir seu cadastro no TocaLá.
+    </div>
+
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#101010;">
+      <tr>
+        <td align="center" style="padding:36px 16px;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%; max-width:600px;">
+            <tr>
+              <td style="padding:0 0 22px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                  <tr>
+                    <td align="center" valign="middle" width="44" height="44" style="width:44px; height:44px; border-radius:13px; background-color:#6C1EE7; color:#ffffff; font-size:25px; font-weight:bold;">&#9835;</td>
+                    <td style="padding-left:12px; color:#ffffff; font-size:24px; font-weight:800; letter-spacing:-1.5px;">Toca<span style="color:#BA3BE7;">Lá</span></td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:34px 30px 30px; border:1px solid #34263d; border-radius:20px; background-color:#1A1A1A;">
+                <p style="margin:0 0 10px; color:#D6A0FF; font-size:12px; font-weight:bold; letter-spacing:2px; text-transform:uppercase;">Seu próximo palco começa aqui</p>
+                <h1 style="margin:0 0 18px; color:#ffffff; font-size:28px; line-height:1.25;">Confirme seu e-mail</h1>
+                <p style="margin:0 0 14px; color:#ded9e3; font-size:16px; line-height:1.65;">Olá!</p>
+                <p style="margin:0 0 26px; color:#c3bdc8; font-size:16px; line-height:1.65;">Recebemos seu cadastro no TocaLá. Confirme seu endereço de e-mail para ativar sua conta e continuar sua jornada musical.</p>
+
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 24px;">
+                  <tr>
+                    <td align="center" bgcolor="#6C1EE7" style="border-radius:10px; background-color:#6C1EE7;">
+                      <a href="{{ .ConfirmationURL }}" target="_blank" style="display:inline-block; padding:14px 24px; border:1px solid #8f55f2; border-radius:10px; color:#ffffff; font-size:15px; font-weight:bold; line-height:1.2; text-decoration:none;">Confirmar meu e-mail</a>
+                    </td>
+                  </tr>
+                </table>
+
+                <p style="margin:0 0 8px; color:#aaa2b1; font-size:13px; line-height:1.6;">Se o botão não abrir, copie e cole este endereço no navegador:</p>
+                <p style="margin:0; font-size:13px; line-height:1.6; word-break:break-all; overflow-wrap:anywhere;">
+                  <a href="{{ .ConfirmationURL }}" target="_blank" style="color:#D6A0FF; text-decoration:underline;">{{ .ConfirmationURL }}</a>
+                </p>
+
+                <div style="height:1px; margin:26px 0 18px; background-color:#37313b; line-height:1px;">&nbsp;</div>
+                <p style="margin:0; color:#918a98; font-size:13px; line-height:1.6;">Se você não criou uma conta no TocaLá, pode ignorar esta mensagem.</p>
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding:22px 12px 0; color:#77717d; font-size:12px; line-height:1.7;">
+                <p style="margin:0 0 5px;">TocaLá — música ao vivo conecta pessoas.</p>
+                <p style="margin:0;"><a href="{{ .SiteURL }}" style="color:#BA3BE7; text-decoration:none;">Acessar o TocaLá</a></p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
