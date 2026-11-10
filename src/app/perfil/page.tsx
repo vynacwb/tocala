@@ -2,16 +2,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, CalendarDays, Mail, MapPin, Pencil, Phone, Settings, Star } from "lucide-react";
+import { ArrowLeft, CalendarDays, Mail, MapPin, Pencil, Phone, Settings } from "lucide-react";
 import { Brand } from "@/components/layout/brand";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { ProfileActionsMenu } from "@/components/profile/profile-actions-menu";
-import { ProfileRatingSummary, ProfileReviews } from "@/components/profile/profile-ratings";
+import { ProfileRankingPoints, ProfileRatingSummary, ProfileReviews } from "@/components/profile/profile-ratings";
 import { Card } from "@/components/ui/card";
 import { SectionTitle } from "@/components/ui/section-title";
 import { SignOutButton } from "@/components/profile/sign-out-button";
 import { BOOKING_WEEKDAYS } from "@/lib/availability";
 import type { DemoReview } from "@/lib/demo-reviews";
+import { getRankingPoints } from "@/lib/ranking-points";
 import { isSupabaseConfigured } from "@/utils/supabase/config";
 import { createClient } from "@/utils/supabase/server";
 
@@ -75,17 +76,19 @@ function whatsappUrl(phone: string) {
   return `https://wa.me/${digits.startsWith("55") ? digits : `55${digits}`}`;
 }
 
-async function getProfileData(publicArtistId?: string): Promise<{ profile: Profile; reviews: Review[]; demoReviews: DemoReview[]; isPublicView: boolean; useLocalDemoReviews: boolean }> {
-  if (!isSupabaseConfigured()) return { profile: demoProfile, reviews: [], demoReviews: [], isPublicView: Boolean(publicArtistId), useLocalDemoReviews: true };
+async function getProfileData(publicArtistId?: string): Promise<{ profile: Profile; reviews: Review[]; demoReviews: DemoReview[]; rankingPoints: number; isPublicView: boolean; useLocalDemoReviews: boolean }> {
+  if (!isSupabaseConfigured()) return { profile: demoProfile, reviews: [], demoReviews: [], rankingPoints: getRankingPoints({ profileRating: demoProfile.rating, profileReviewCount: demoProfile.review_count }), isPublicView: Boolean(publicArtistId), useLocalDemoReviews: true };
 
   const supabase = await createClient();
 
   if (publicArtistId) {
     if (!/^[0-9a-f-]{36}$/i.test(publicArtistId)) notFound();
-    const [{ data: profileData }, { data: reviewsData }, { data: demoReviewsData }] = await Promise.all([
+    const [{ data: profileData }, { data: reviewsData }, { data: demoReviewsData }, { data: ratingRows }, { data: demoRatingRows }] = await Promise.all([
       supabase.from("profiles").select("real_name, stage_name, full_name, username, genre, genres, instruments, bio, career, avatar_url, avatar_position_x, avatar_position_y, booking_weekdays, level, rating, review_count, contact_email, contact_phone, city, state").eq("id", publicArtistId).eq("profile_visible", true).eq("status", "ATIVO").maybeSingle(),
       supabase.from("reviews").select("id, author_name, author_avatar_url, body, rating").eq("artist_id", publicArtistId).order("created_at", { ascending: false }).limit(6),
       supabase.from("demo_reviews").select("id, artist_id, author_name, body, rating, created_at").eq("artist_id", publicArtistId).order("created_at", { ascending: false }).limit(20),
+      supabase.from("reviews").select("rating").eq("artist_id", publicArtistId),
+      supabase.from("demo_reviews").select("rating").eq("artist_id", publicArtistId),
     ]);
     if (!profileData) notFound();
     const profile: Profile = {
@@ -110,16 +113,24 @@ async function getProfileData(publicArtistId?: string): Promise<{ profile: Profi
       city: profileData.city,
       state: profileData.state,
     };
-    return { profile, reviews: reviewsData ?? [], demoReviews: (demoReviewsData ?? []).map((review) => ({ id: review.id, artistId: review.artist_id, authorName: review.author_name, rating: review.rating, comment: review.body, createdAt: review.created_at })), isPublicView: true, useLocalDemoReviews: false };
+    const rankingPoints = getRankingPoints({
+      profileRating: profile.rating,
+      profileReviewCount: profile.review_count,
+      reviewRatings: (ratingRows ?? []).map((review) => Number(review.rating)),
+      demoReviewRatings: (demoRatingRows ?? []).map((review) => Number(review.rating)),
+    });
+    return { profile, reviews: reviewsData ?? [], demoReviews: (demoReviewsData ?? []).map((review) => ({ id: review.id, artistId: review.artist_id, authorName: review.author_name, rating: review.rating, comment: review.body, createdAt: review.created_at })), rankingPoints, isPublicView: true, useLocalDemoReviews: false };
   }
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login?redirectTo=/perfil");
 
-  const [{ data: profileData }, { data: reviewsData }, { data: demoReviewsData }] = await Promise.all([
+  const [{ data: profileData }, { data: reviewsData }, { data: demoReviewsData }, { data: ratingRows }, { data: demoRatingRows }] = await Promise.all([
     supabase.from("profiles").select("real_name, stage_name, full_name, username, genre, genres, instruments, bio, career, avatar_url, avatar_position_x, avatar_position_y, booking_weekdays, level, rating, review_count, contact_email, contact_phone, city, state").eq("id", user.id).maybeSingle(),
     supabase.from("reviews").select("id, author_name, author_avatar_url, body, rating").eq("artist_id", user.id).order("created_at", { ascending: false }).limit(6),
     supabase.from("demo_reviews").select("id, artist_id, author_name, body, rating, created_at").eq("artist_id", user.id).order("created_at", { ascending: false }).limit(20),
+    supabase.from("reviews").select("rating").eq("artist_id", user.id),
+    supabase.from("demo_reviews").select("rating").eq("artist_id", user.id),
   ]);
 
   const profile: Profile = {
@@ -145,13 +156,19 @@ async function getProfileData(publicArtistId?: string): Promise<{ profile: Profi
     review_count: profileData?.review_count ?? 0,
   };
 
-  return { profile, reviews: reviewsData ?? [], demoReviews: (demoReviewsData ?? []).map((review) => ({ id: review.id, artistId: review.artist_id, authorName: review.author_name, rating: review.rating, comment: review.body, createdAt: review.created_at })), isPublicView: false, useLocalDemoReviews: false };
+  const rankingPoints = getRankingPoints({
+    profileRating: profile.rating,
+    profileReviewCount: profile.review_count,
+    reviewRatings: (ratingRows ?? []).map((review) => Number(review.rating)),
+    demoReviewRatings: (demoRatingRows ?? []).map((review) => Number(review.rating)),
+  });
+  return { profile, reviews: reviewsData ?? [], demoReviews: (demoReviewsData ?? []).map((review) => ({ id: review.id, artistId: review.artist_id, authorName: review.author_name, rating: review.rating, comment: review.body, createdAt: review.created_at })), rankingPoints, isPublicView: false, useLocalDemoReviews: false };
 }
 
 export default async function ProfilePage({ searchParams }: { searchParams: Promise<{ artista?: string }> }) {
   const { artista } = await searchParams;
   const configured = isSupabaseConfigured();
-  const { profile, reviews, demoReviews, isPublicView, useLocalDemoReviews } = await getProfileData(artista);
+  const { profile, reviews, demoReviews, rankingPoints, isPublicView, useLocalDemoReviews } = await getProfileData(artista);
   const bookingDays = BOOKING_WEEKDAYS.filter((day) => profile.booking_weekdays.includes(day.value));
 
   return (
@@ -194,9 +211,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
               {(profile.city || profile.state) && <p className="mt-2 inline-flex items-center gap-1.5 text-sm text-white/55"><MapPin className="size-4 text-[#D6A0FF]" />{[profile.city, profile.state].filter(Boolean).join(", ")}</p>}
             </div>
             <div className="mt-7 flex w-full max-w-[480px] items-center justify-between gap-4 border-t border-white/10 pt-6">
-              <div className="inline-flex h-12 items-center gap-2 rounded-xl bg-[#FBBF24] px-3.5 font-bold text-[#1A1A1A] shadow-lg shadow-[#FBBF24]/15" aria-label={`Nível ${profile.level}`}>
-                <Star className="size-6" strokeWidth={1.8} /><span className="text-lg">{String(profile.level).padStart(2, "0")}</span>
-              </div>
+              <ProfileRankingPoints artistId={profile.id} points={rankingPoints} useLocalDemoReviews={useLocalDemoReviews} />
               <div className="text-[21px] lg:text-[27px]"><ProfileRatingSummary artistId={profile.id} rating={profile.rating} count={profile.review_count} sharedReviews={demoReviews} useLocalDemoReviews={useLocalDemoReviews} /></div>
             </div>
           </div>

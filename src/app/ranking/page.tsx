@@ -7,6 +7,8 @@ import { MobileNav } from "@/components/layout/mobile-nav";
 import { Navbar } from "@/components/layout/navbar";
 import { featuredArtists, type Artist } from "@/lib/artists";
 import { DEMO_REVIEWS } from "@/lib/demo-reviews";
+import { RankingPointsBadge } from "@/components/ranking/ranking-points-badge";
+import { getRankingPoints } from "@/lib/ranking-points";
 import { isSupabaseConfigured } from "@/utils/supabase/config";
 import { createClient } from "@/utils/supabase/server";
 
@@ -71,12 +73,13 @@ async function getRanking(): Promise<RankedArtist[]> {
       const artistReviews = reviews.filter((review) => review.artistId === artist.id);
       const artistRatings = recordedRatings.filter((rating) => rating.artistId === artist.id);
       const realReviewCount = artistRatings.length > 0 ? artistRatings.length : Math.max(0, artist.reviews);
-      const realStars = artistRatings.length > 0
-        ? artistRatings.reduce((sum, review) => sum + review.rating, 0)
-        : Math.round(Math.max(0, artist.rating) * realReviewCount);
-      const demoStars = artistReviews.reduce((sum, review) => sum + review.rating, 0);
+      const totalStars = getRankingPoints({
+        profileRating: artist.rating,
+        profileReviewCount: realReviewCount,
+        reviewRatings: artistRatings.map((review) => review.rating),
+        demoReviewRatings: artistReviews.map((review) => review.rating),
+      });
       const reviewCount = realReviewCount + artistReviews.length;
-      const totalStars = realStars + demoStars;
       return { ...artist, average: reviewCount ? totalStars / reviewCount : 0, reviewCount, totalStars };
     })
     .sort((a, b) => b.totalStars - a.totalStars || b.average - a.average || b.reviewCount - a.reviewCount || a.name.localeCompare(b.name, "pt-BR"));
@@ -133,6 +136,7 @@ export default async function RankingPage() {
                 <Link key={artist.id} href={`/perfil?artista=${encodeURIComponent(artist.id)}`} className={`group flex min-h-[66px] items-center gap-3 rounded-[17px] border-2 bg-black px-3 py-2 text-white transition hover:-translate-y-0.5 hover:border-[#BA3BE7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#BA3BE7] sm:min-h-[78px] sm:gap-5 sm:px-5 ${placeStyles[index]} ${index === 0 ? "border-[3px]" : ""}`}>
                   <span className={`min-w-[54px] text-left font-bold leading-none sm:min-w-[78px] ${index === 0 ? "text-[36px] sm:text-[48px]" : index === 1 ? "text-[32px] sm:text-[42px]" : "text-[26px] sm:text-[34px]"}`}>{index + 1}°</span>
                   <span className={`min-w-0 flex-1 truncate text-center font-semibold ${index === 0 ? "text-[19px] sm:text-[28px]" : index === 1 ? "text-[17px] sm:text-[24px]" : "text-[15px] sm:text-[20px]"}`}>{artist.name}</span>
+                  <RankingPointsBadge compact points={artist.totalStars} />
                   <span className="sr-only">, nota {artist.average ? artist.average.toLocaleString("pt-BR", { maximumFractionDigits: 1 }) : "sem avaliações"}, {artist.reviewCount} avaliações</span>
                 </Link>
               ))}
@@ -148,7 +152,10 @@ export default async function RankingPage() {
                     <Link href={`/perfil?artista=${encodeURIComponent(artist.id)}`} className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/65 px-3 py-2.5 transition hover:border-[#711EC9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#BA3BE7]">
                       <span className="w-8 text-sm font-bold text-white/55">{index + 4}°</span>
                       <span className="min-w-0 flex-1 truncate text-sm font-medium">{artist.name}</span>
-                      <RatingStars rating={artist.average} totalStars={artist.totalStars} />
+                      <div className="flex shrink-0 items-center gap-2">
+                        <RatingStars rating={artist.average} totalStars={artist.totalStars} />
+                        <RankingPointsBadge compact points={artist.totalStars} />
+                      </div>
                     </Link>
                   </li>
                 ))}

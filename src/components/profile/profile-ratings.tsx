@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Star } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { combineRating, DEMO_REVIEWS_CHANGE_EVENT, getDemoReviews, type DemoReview } from "@/lib/demo-reviews";
+import { RankingPointsBadge } from "@/components/ranking/ranking-points-badge";
 
 type Review = { id: string; author_name: string; author_avatar_url: string; body: string; rating: number };
 const subscribe = (callback: () => void) => {
@@ -22,6 +23,13 @@ export function ProfileRatingSummary({ artistId, rating, count, sharedReviews = 
   return aggregate.count ? <div className="flex items-center gap-1 text-[#FBBF24]" role="img" aria-label={`Avaliação ${aggregate.rating.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} de 5 estrelas`}>
     {Array.from({ length: 5 }, (_, i) => <Star key={i} className={`size-[1em] ${i < Math.round(aggregate.rating) ? "fill-current" : "fill-transparent"}`} />)}
   </div> : <span className="text-base font-semibold text-white/55" aria-label="Sem avaliações">★ --</span>;
+}
+
+export function ProfileRankingPoints({ artistId, points, useLocalDemoReviews = false }: { artistId: string; points: number; useLocalDemoReviews?: boolean }) {
+  const storedSnapshot = useSyncExternalStore(subscribe, snapshot, serverSnapshot);
+  const localReviews = useLocalDemoReviews ? getDemoReviews(artistId, parseStored(storedSnapshot)) : [];
+  const localPoints = localReviews.reduce((sum, review) => sum + review.rating, 0);
+  return <RankingPointsBadge points={points + localPoints} />;
 }
 
 function parseStored(value: string): DemoReview[] {
