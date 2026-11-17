@@ -15,6 +15,7 @@ export const dynamic = "force-dynamic";
 const demoData: ProfileSettingsData = {
   realName: "Marina Oliveira", fullName: "Marina Luz", username: "marinaluz",
   contactEmail: "contato@marinaluz.com", contactPhone: "+55 11 99999-1234",
+  estimatedPrice: "850", priceUnit: "show", acceptsDifferentProposals: true,
   city: "São Paulo", state: "SP", genre: "MPB", genres: ["MPB"],
   instruments: ["Voz", "Cavaquinho", "Pandeiro"],
   bio: "Cantora e compositora movida por encontros, histórias e pela força da música brasileira.",
@@ -32,9 +33,10 @@ async function getSettingsData(): Promise<{ data: ProfileSettingsData; configure
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login?redirectTo=/perfil/configuracoes");
-  const [{ data: profile }, { data: musician }] = await Promise.all([
+  const [{ data: profile }, { data: musician }, { data: priceData }] = await Promise.all([
     supabase.from("profiles").select("real_name, stage_name, full_name, username, contact_email, contact_phone, city, state, genre, genres, instruments, bio, career, avatar_url, avatar_position_x, avatar_position_y").eq("id", user.id).maybeSingle(),
     supabase.from("musician_profiles").select("portfolio_links").eq("user_id", user.id).maybeSingle(),
+    supabase.from("profiles").select("estimated_price, price_unit, accepts_different_proposals").eq("id", user.id).maybeSingle(),
   ]);
   const fallbackUsername = emailUsername(user.email);
   const generatedSuffix = `-${user.id.slice(0, 6)}`;
@@ -45,6 +47,9 @@ async function getSettingsData(): Promise<{ data: ProfileSettingsData; configure
     realName: profile?.real_name || user.user_metadata.full_name || "",
     fullName: profile?.stage_name || "", username,
     contactEmail: profile?.contact_email || "", contactPhone: profile?.contact_phone || "",
+    estimatedPrice: priceData?.estimated_price == null ? "" : String(priceData.estimated_price),
+    priceUnit: priceData?.price_unit === "hourly" ? "hourly" : "show",
+    acceptsDifferentProposals: priceData?.accepts_different_proposals ?? false,
     city: profile?.city || "", state: profile?.state || "",
     genre: profile?.genre || "", genres: Array.isArray(profile?.genres) && profile.genres.length > 0 ? profile.genres as string[] : (profile?.genre || "").split(/[·,]/).map((item: string) => item.trim()).filter(Boolean), instruments: Array.isArray(profile?.instruments) ? profile.instruments : [], bio: profile?.bio || "", avatarUrl: profile?.avatar_url || "",
     avatarPositionX: profile?.avatar_position_x ?? 50, avatarPositionY: profile?.avatar_position_y ?? 50,

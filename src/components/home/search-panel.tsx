@@ -149,9 +149,10 @@ export function SearchPanel({ initialQuery = "", initialGenres = [], initialInst
   }
 
   return (
-    <div id="busca" className={`scroll-mt-28 ${variant === "results" ? "" : "mt-9 lg:mt-10"}`}>
+    <div id="busca" className={`scroll-mt-[160px] lg:scroll-mt-28 ${variant === "results" ? "" : "mt-9 lg:mt-10"}`}>
       {variant === "landing" && <h2 className="mb-3 text-lg font-semibold tracking-[-0.025em] lg:mb-4 lg:text-xl">Comece sua busca</h2>}
       <form
+        data-search-bar
         action="/#destaques"
         method="get"
         className={`flex h-14 items-center gap-3 rounded-xl border border-white/10 px-3 shadow-2xl focus-within:ring-2 focus-within:ring-[#BA3BE7] lg:h-16 lg:gap-4 lg:px-4 ${variant === "results" ? "bg-[#222226]" : "bg-[#F7F5FA] shadow-black/40"}`}
@@ -163,7 +164,7 @@ export function SearchPanel({ initialQuery = "", initialGenres = [], initialInst
         <input type="hidden" name="instrumentos" value={selectedInstruments.join(",")} />
         <input type="hidden" name="disponivel_de" value={availabilityStart} />
         <input type="hidden" name="disponivel_ate" value={availabilityEnd} />
-        <button type="submit" className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#6C1EE7] text-white transition hover:bg-[#BA3BE7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6C1EE7] lg:h-11 lg:w-auto lg:px-6 lg:text-sm lg:font-semibold" aria-label="Buscar">
+        <button type="submit" className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#6C1EE7] text-white transition hover:bg-[#BA3BE7] active:scale-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6C1EE7] lg:h-11 lg:w-auto lg:px-6 lg:text-sm lg:font-semibold" aria-label="Buscar">
           <span className="hidden lg:inline">Buscar</span>
           <ArrowRight className="size-[18px] lg:hidden" aria-hidden="true" />
         </button>
@@ -177,7 +178,7 @@ export function SearchPanel({ initialQuery = "", initialGenres = [], initialInst
 
       <div className="hide-scrollbar -mx-5 mt-4 flex gap-2.5 overflow-x-auto px-5 pb-2 lg:mx-0 lg:mt-5 lg:flex-wrap lg:gap-3 lg:px-0" aria-label="Filtros de busca">
         {filters.map((filter) => (
-          <button key={filter} type="button" onClick={filter === "Gênero" ? openGenrePanel : filter === "Instrumento" ? openInstrumentPanel : openAvailabilityPanel} aria-expanded={filter === "Gênero" ? genrePanelOpen : filter === "Instrumento" ? instrumentPanelOpen : availabilityPanelOpen} className={`inline-flex shrink-0 items-center gap-2 rounded-lg border px-3.5 py-2.5 text-[13px] font-medium transition hover:border-[#BA3BE7] hover:bg-[#6C1EE7]/40 lg:px-4 lg:py-3 ${(filter === "Gênero" && selectedGenres.length > 0) || (filter === "Instrumento" && selectedInstruments.length > 0) || (filter === "Disponibilidade" && availabilityStart && availabilityEnd) ? "border-[#BA3BE7] bg-[#6C1EE7]/40 text-white" : "border-[#BA3BE7]/40 bg-[#6C1EE7]/25 text-[#E4C9FF]"}`}>
+          <button key={filter} type="button" onClick={filter === "Gênero" ? openGenrePanel : filter === "Instrumento" ? openInstrumentPanel : openAvailabilityPanel} aria-expanded={filter === "Gênero" ? genrePanelOpen : filter === "Instrumento" ? instrumentPanelOpen : availabilityPanelOpen} className={`inline-flex shrink-0 items-center gap-2 rounded-lg border px-3.5 py-2.5 text-[13px] font-medium transition hover:border-[#BA3BE7] hover:bg-[#6C1EE7]/40 active:scale-[0.97] lg:px-4 lg:py-3 ${(filter === "Gênero" && selectedGenres.length > 0) || (filter === "Instrumento" && selectedInstruments.length > 0) || (filter === "Disponibilidade" && availabilityStart && availabilityEnd) ? "border-[#BA3BE7] bg-[#6C1EE7]/40 text-white" : "border-[#BA3BE7]/40 bg-[#6C1EE7]/25 text-[#E4C9FF]"}`}>
             {filter === "Gênero" && selectedGenres.length > 0 ? `Gênero (${selectedGenres.length})` : filter === "Instrumento" && selectedInstruments.length > 0 ? `Instrumento (${selectedInstruments.length})` : filter === "Disponibilidade" && availabilityStart && availabilityEnd ? "Disponibilidade (período)" : filter}<ChevronDown className="size-3.5" strokeWidth={1.8} />
           </button>
         ))}

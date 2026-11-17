@@ -2,7 +2,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, CalendarDays, Mail, MapPin, Pencil, Phone, Settings } from "lucide-react";
+import { ArrowLeft, CalendarDays, DollarSign, Mail, MapPin, Pencil, Phone, Settings } from "lucide-react";
 import { Brand } from "@/components/layout/brand";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { ProfileActionsMenu } from "@/components/profile/profile-actions-menu";
@@ -17,6 +17,7 @@ import { rankArtists } from "@/lib/artist-ranking";
 import { featuredArtists } from "@/lib/artists";
 import { getRankingPoints } from "@/lib/ranking-points";
 import { getArtistRankingPosition } from "@/lib/artist-ranking.server";
+import { formatEstimatedArtistPrice } from "@/lib/artist-pricing";
 import { isSupabaseConfigured } from "@/utils/supabase/config";
 import { createClient } from "@/utils/supabase/server";
 
@@ -28,6 +29,9 @@ type Profile = {
   full_name: string;
   contact_email: string;
   contact_phone: string;
+  estimated_price: number | null;
+  price_unit: "hourly" | "show";
+  accepts_different_proposals: boolean;
   city: string;
   state: string;
   username: string;
@@ -58,6 +62,9 @@ const demoProfile: Profile = {
   full_name: "Marina Luz",
   contact_email: "contato@marinaluz.com",
   contact_phone: "+55 11 99999-1234",
+  estimated_price: 850,
+  price_unit: "show",
+  accepts_different_proposals: true,
   city: "São Paulo",
   state: "SP",
   username: "marinaluz",
@@ -90,12 +97,13 @@ async function getProfileData(publicArtistId?: string): Promise<{ profile: Profi
 
   if (publicArtistId) {
     if (!/^[0-9a-f-]{36}$/i.test(publicArtistId)) notFound();
-    const [{ data: profileData }, { data: reviewsData }, { data: demoReviewsData }, { data: ratingRows }, { data: demoRatingRows }] = await Promise.all([
+    const [{ data: profileData }, { data: reviewsData }, { data: demoReviewsData }, { data: ratingRows }, { data: demoRatingRows }, { data: priceData }] = await Promise.all([
       supabase.from("profiles").select("real_name, stage_name, full_name, username, genre, genres, instruments, bio, career, avatar_url, avatar_position_x, avatar_position_y, booking_weekdays, level, rating, review_count, contact_email, contact_phone, city, state").eq("id", publicArtistId).eq("profile_visible", true).eq("status", "ATIVO").maybeSingle(),
       supabase.from("reviews").select("id, author_name, author_avatar_url, body, rating").eq("artist_id", publicArtistId).order("created_at", { ascending: false }).limit(6),
       supabase.from("demo_reviews").select("id, artist_id, author_name, body, rating, created_at").eq("artist_id", publicArtistId).order("created_at", { ascending: false }).limit(20),
       supabase.from("reviews").select("rating").eq("artist_id", publicArtistId),
       supabase.from("demo_reviews").select("rating").eq("artist_id", publicArtistId),
+      supabase.from("profiles").select("estimated_price, price_unit, accepts_different_proposals").eq("id", publicArtistId).maybeSingle(),
     ]);
     if (!profileData) notFound();
     const profile: Profile = {
@@ -117,6 +125,9 @@ async function getProfileData(publicArtistId?: string): Promise<{ profile: Profi
       review_count: profileData.review_count,
       contact_email: profileData.contact_email,
       contact_phone: profileData.contact_phone,
+      estimated_price: priceData?.estimated_price == null ? null : Number(priceData.estimated_price),
+      price_unit: priceData?.price_unit === "hourly" ? "hourly" : "show",
+      accepts_different_proposals: priceData?.accepts_different_proposals ?? false,
       city: profileData.city,
       state: profileData.state,
     };
@@ -133,12 +144,13 @@ async function getProfileData(publicArtistId?: string): Promise<{ profile: Profi
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login?redirectTo=/perfil");
 
-  const [{ data: profileData }, { data: reviewsData }, { data: demoReviewsData }, { data: ratingRows }, { data: demoRatingRows }] = await Promise.all([
+  const [{ data: profileData }, { data: reviewsData }, { data: demoReviewsData }, { data: ratingRows }, { data: demoRatingRows }, { data: priceData }] = await Promise.all([
     supabase.from("profiles").select("real_name, stage_name, full_name, username, genre, genres, instruments, bio, career, avatar_url, avatar_position_x, avatar_position_y, booking_weekdays, level, rating, review_count, contact_email, contact_phone, city, state").eq("id", user.id).maybeSingle(),
     supabase.from("reviews").select("id, author_name, author_avatar_url, body, rating").eq("artist_id", user.id).order("created_at", { ascending: false }).limit(6),
     supabase.from("demo_reviews").select("id, artist_id, author_name, body, rating, created_at").eq("artist_id", user.id).order("created_at", { ascending: false }).limit(20),
     supabase.from("reviews").select("rating").eq("artist_id", user.id),
     supabase.from("demo_reviews").select("rating").eq("artist_id", user.id),
+    supabase.from("profiles").select("estimated_price, price_unit, accepts_different_proposals").eq("id", user.id).maybeSingle(),
   ]);
 
   const profile: Profile = {
@@ -157,6 +169,9 @@ async function getProfileData(publicArtistId?: string): Promise<{ profile: Profi
     booking_weekdays: Array.isArray(profileData?.booking_weekdays) ? profileData.booking_weekdays.map(Number) : demoProfile.booking_weekdays,
     contact_email: profileData?.contact_email || "",
     contact_phone: profileData?.contact_phone || "",
+    estimated_price: priceData?.estimated_price == null ? null : Number(priceData.estimated_price),
+    price_unit: priceData?.price_unit === "hourly" ? "hourly" : "show",
+    accepts_different_proposals: priceData?.accepts_different_proposals ?? false,
     city: profileData?.city || "",
     state: profileData?.state || "",
     level: profileData?.level ?? demoProfile.level,
@@ -239,6 +254,17 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
           <div className="mt-5 flex flex-wrap gap-3">
             {profile.contact_email && <a href={`mailto:${profile.contact_email}`} className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-[#1A1A1A] px-4 py-3 text-sm text-white/75 transition hover:border-[#BA3BE7] hover:text-[#D6A0FF]"><Mail className="size-4" />{profile.contact_email}</a>}
             {profile.contact_phone && <a href={whatsappUrl(profile.contact_phone)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-[#1A1A1A] px-4 py-3 text-sm text-white/75 transition hover:border-[#BA3BE7] hover:text-[#D6A0FF]"><Phone className="size-4" />WhatsApp</a>}
+          </div>
+        </Card>}
+
+        {(profile.estimated_price !== null || profile.accepts_different_proposals) && <Card className="bg-[#222226] p-6 lg:p-8">
+          <SectionTitle>Contratações</SectionTitle>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            {profile.estimated_price !== null && <div className="flex items-center gap-3">
+              <span className="flex size-11 items-center justify-center rounded-xl bg-[#6C1EE7]/20 text-[#D6A0FF]"><DollarSign className="size-5" /></span>
+              <div><p className="text-xs text-white/45">Valor estimado</p><p className="mt-0.5 text-base font-semibold text-white">{formatEstimatedArtistPrice(profile.estimated_price, profile.price_unit)}</p></div>
+            </div>}
+            {profile.accepts_different_proposals && <span className="rounded-full border border-[#BA3BE7]/25 bg-[#6C1EE7]/15 px-3 py-2 text-xs font-medium text-[#E4C9FF]">Aceita propostas diferentes</span>}
           </div>
         </Card>}
 

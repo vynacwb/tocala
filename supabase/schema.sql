@@ -21,6 +21,9 @@ create table if not exists public.profiles (
   avatar_position_y smallint not null default 50 check (avatar_position_y between 0 and 100),
   contact_email text not null default '',
   contact_phone text not null default '',
+  estimated_price numeric(10, 2) check (estimated_price is null or estimated_price >= 0),
+  price_unit text not null default 'show' check (price_unit in ('hourly', 'show')),
+  accepts_different_proposals boolean not null default false,
   city text not null default '',
   state text not null default '',
   profile_visible boolean not null default false,
@@ -36,6 +39,13 @@ alter table public.profiles add column if not exists real_name text not null def
 alter table public.profiles add column if not exists stage_name text not null default '';
 alter table public.profiles add column if not exists contact_email text not null default '';
 alter table public.profiles add column if not exists contact_phone text not null default '';
+alter table public.profiles add column if not exists estimated_price numeric(10, 2);
+alter table public.profiles add column if not exists price_unit text not null default 'show';
+alter table public.profiles add column if not exists accepts_different_proposals boolean not null default false;
+alter table public.profiles drop constraint if exists profiles_estimated_price_check;
+alter table public.profiles add constraint profiles_estimated_price_check check (estimated_price is null or estimated_price >= 0);
+alter table public.profiles drop constraint if exists profiles_price_unit_check;
+alter table public.profiles add constraint profiles_price_unit_check check (price_unit in ('hourly', 'show'));
 alter table public.profiles add column if not exists city text not null default '';
 alter table public.profiles add column if not exists state text not null default '';
 alter table public.profiles add column if not exists instruments text[] not null default '{}';
@@ -176,7 +186,7 @@ alter table public.artist_availability enable row level security;
 grant usage on schema public to anon, authenticated;
 grant select on public.profiles, public.musician_profiles, public.organizer_profiles, public.events, public.reviews, public.demo_reviews, public.artist_availability to anon, authenticated;
 grant insert on public.profiles to authenticated;
-grant update (full_name, real_name, stage_name, username, account_type, genre, genres, instruments, bio, career, avatar_url, avatar_position_x, avatar_position_y, contact_email, contact_phone, city, state, profile_visible, booking_weekdays) on public.profiles to authenticated;
+grant update (full_name, real_name, stage_name, username, account_type, genre, genres, instruments, bio, career, avatar_url, avatar_position_x, avatar_position_y, contact_email, contact_phone, estimated_price, price_unit, accepts_different_proposals, city, state, profile_visible, booking_weekdays) on public.profiles to authenticated;
 grant insert, update, delete on public.artist_availability to authenticated;
 grant insert, update, delete on public.musician_profiles, public.organizer_profiles, public.events to authenticated;
 grant insert on public.proposals, public.messages, public.reviews, public.demo_reviews to authenticated;

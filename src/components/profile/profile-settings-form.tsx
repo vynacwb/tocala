@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 import { useActionState, useEffect, useMemo, useState, type ChangeEvent } from "react";
 import Link from "next/link";
-import { Camera, ChevronDown, ImagePlus, LoaderCircle, Mail, MapPin, Music2, Phone, Plus, Save, Sparkles, Trash2, UserRound } from "lucide-react";
+import { Camera, ChevronDown, DollarSign, ImagePlus, LoaderCircle, Mail, MapPin, Music2, Phone, Plus, Save, Sparkles, Trash2, UserRound } from "lucide-react";
 import { saveProfileSettings } from "@/app/perfil/configuracoes/actions";
 import { useToast } from "@/components/providers/app-providers";
 import { Button } from "@/components/ui/button";
@@ -58,6 +58,9 @@ export function ProfileSettingsForm({ initialData, configured }: { initialData: 
   const [username, setUsername] = useState(initialData.username);
   const [contactEmail, setContactEmail] = useState(initialData.contactEmail);
   const [contactPhone, setContactPhone] = useState(initialData.contactPhone);
+  const [estimatedPrice, setEstimatedPrice] = useState(initialData.estimatedPrice);
+  const [priceUnit, setPriceUnit] = useState<"hourly" | "show">(initialData.priceUnit);
+  const [acceptsDifferentProposals, setAcceptsDifferentProposals] = useState(initialData.acceptsDifferentProposals);
   const [city, setCity] = useState(initialData.city);
   const [stateCode, setStateCode] = useState(initialData.state);
   const [genres, setGenres] = useState(initialData.genres);
@@ -300,6 +303,37 @@ export function ProfileSettingsForm({ initialData, configured }: { initialData: 
           <label className="block">
             <FieldLabel optional>Estado (UF)</FieldLabel>
             <input name="state" value={stateCode} onChange={(event) => setStateCode(event.target.value.replace(/[^a-z]/gi, "").slice(0, 2).toUpperCase())} maxLength={2} autoComplete="address-level1" placeholder="SP" className="h-14 w-full rounded-xl border border-white/15 bg-[#101010]/70 px-4 text-sm uppercase text-white outline-none transition placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20" />
+          </label>
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-white/10 bg-[#1A1A1A] p-5 shadow-2xl shadow-black/20 sm:p-7 lg:p-9">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[#BA3BE7]">Contratações</p>
+          <h2 className="mt-1 text-xl font-semibold tracking-[-0.03em] lg:text-2xl">Valor estimado</h2>
+          <p className="mt-2 text-sm text-white/50">Informe quanto costuma cobrar. Esse valor é uma referência e pode ser negociado em cada proposta.</p>
+        </div>
+        <div className="mt-5 grid gap-5 sm:grid-cols-2">
+          <label className="block">
+            <FieldLabel optional>Preço habitual</FieldLabel>
+            <span className="relative block">
+              <DollarSign className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[#D6A0FF]" />
+              <span className="pointer-events-none absolute left-11 top-1/2 -translate-y-1/2 text-sm text-white/50">R$</span>
+              <input name="estimatedPrice" type="number" min="0" max="99999999.99" step="0.01" value={estimatedPrice} onChange={(event) => setEstimatedPrice(event.target.value)} placeholder="0,00" className="h-14 w-full rounded-xl border border-white/15 bg-[#101010]/70 pl-[4.5rem] pr-4 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20" />
+            </span>
+          </label>
+          <fieldset>
+            <legend className="mb-2 text-sm font-medium text-white/80">Como o valor é calculado?</legend>
+            <div className="grid grid-cols-2 gap-2">
+              {[{ value: "hourly", label: "Por hora" }, { value: "show", label: "Por show" }].map((option) => <label key={option.value} className={`flex min-h-14 cursor-pointer items-center gap-2 rounded-xl border px-3 text-sm transition ${priceUnit === option.value ? "border-[#BA3BE7] bg-[#6C1EE7]/20 text-white" : "border-white/15 bg-[#101010]/70 text-white/60 hover:border-white/25"}`}>
+                <input type="radio" name="priceUnit" value={option.value} checked={priceUnit === option.value} onChange={() => setPriceUnit(option.value as "hourly" | "show")} className="size-4 accent-[#BA3BE7]" />
+                {option.label}
+              </label>)}
+            </div>
+          </fieldset>
+          <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-white/10 bg-[#101010]/60 p-4 sm:col-span-2">
+            <input type="checkbox" name="acceptsDifferentProposals" value="true" checked={acceptsDifferentProposals} onChange={(event) => setAcceptsDifferentProposals(event.target.checked)} className="mt-0.5 size-4 shrink-0 accent-[#BA3BE7]" />
+            <span><span className="block text-sm font-medium text-white/85">Aceito propostas com valores diferentes</span><span className="mt-1 block text-xs leading-relaxed text-white/45">Contratantes poderão enviar uma proposta acima ou abaixo do valor estimado.</span></span>
           </label>
         </div>
       </section>

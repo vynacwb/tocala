@@ -68,9 +68,10 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
     if (artists.length > 0) {
       const artistIds = artists.map((artist) => artist.id);
-      const [{ data: ratingRows }, { data: demoRows }] = await Promise.all([
+      const [{ data: ratingRows }, { data: demoRows }, { data: priceRows }] = await Promise.all([
         supabase.from("reviews").select("artist_id, rating").in("artist_id", artistIds),
         supabase.from("demo_reviews").select("id, artist_id, author_name, body, rating, created_at").in("artist_id", artistIds).order("created_at", { ascending: false }),
+        supabase.from("profiles").select("id, estimated_price, price_unit, accepts_different_proposals").in("id", artistIds),
       ]);
       realRatings = (ratingRows ?? []).map((review) => ({ artistId: review.artist_id, rating: Number(review.rating) }));
       sharedDemoReviews = (demoRows ?? []).map((review) => ({
@@ -81,7 +82,17 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         comment: review.body,
         createdAt: review.created_at,
       }));
-      artists = artists.map((artist) => ({ ...artist, demoReviews: sharedDemoReviews.filter((review) => review.artistId === artist.id) }));
+      const priceByArtistId = new Map((priceRows ?? []).map((profile) => [profile.id, profile]));
+      artists = artists.map((artist) => {
+        const pricing = priceByArtistId.get(artist.id);
+        return {
+          ...artist,
+          demoReviews: sharedDemoReviews.filter((review) => review.artistId === artist.id),
+          estimatedPrice: pricing?.estimated_price == null ? null : Number(pricing.estimated_price),
+          priceUnit: pricing?.price_unit === "hourly" ? "hourly" : "show",
+          acceptsDifferentProposals: pricing?.accepts_different_proposals ?? false,
+        };
+      });
     }
   }
 
@@ -143,7 +154,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     <div className="mx-auto min-h-dvh max-w-[400px] bg-[#1A1A1A] shadow-2xl shadow-black/40 lg:max-w-none lg:bg-[#101010] lg:shadow-none">
       <Navbar />
       <main className="mx-auto max-w-[400px] px-5 pt-[calc(env(safe-area-inset-top)+147px)] lg:max-w-[1200px] lg:px-6 lg:pt-32">
-        {!isSearchResults ? <section id="explorar" className="flex scroll-mt-28 flex-col lg:grid lg:grid-cols-[3fr_2fr] lg:items-center lg:gap-14 lg:pb-16">
+        {!isSearchResults ? <section id="explorar" className="mobile-section-enter flex scroll-mt-28 flex-col lg:grid lg:grid-cols-[3fr_2fr] lg:items-center lg:gap-14 lg:pb-16">
           <div className="order-2 lg:order-1">
             <div className="hidden lg:block">
               <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#E4C9FF] backdrop-blur-sm">
@@ -161,7 +172,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           <div className="relative order-1 lg:order-2">
             <div className="absolute -inset-4 hidden rounded-[2.5rem] bg-[#6C1EE7]/15 blur-3xl lg:block" aria-hidden="true" />
             <div className="relative isolate h-[238px] overflow-hidden rounded-2xl bg-[#271535] shadow-2xl shadow-black/40 lg:h-[510px] lg:rounded-3xl">
-              <Image src="https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=1400&q=85" alt="Músicos tocando em um show sob luzes de palco" fill priority sizes="(min-width: 1024px) 460px, 360px" className="-z-20 object-cover object-center" />
+              <Image src="https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=1400&q=85" alt="Músicos tocando em um show sob luzes de palco" fill priority sizes="(min-width: 1024px) 460px, 360px" className="mobile-hero-image -z-20 object-cover object-center" />
               <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#0D0915]/95 via-[#160D26]/75 to-[#130B1B]/20 lg:bg-gradient-to-t lg:from-[#220C39]/70 lg:via-[#150B25]/20 lg:to-[#6C1EE7]/15" />
               <div className="flex h-full flex-col justify-between p-6 lg:hidden">
                 <div>
@@ -176,7 +187,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
               </div>
             </div>
           </div>
-        </section> : <section className="scroll-mt-28">
+        </section> : <section className="mobile-section-enter scroll-mt-28">
           <SearchPanel key={`resultados|${busca}|${initialGenres.join(",")}|${initialInstruments.join(",")}|${availabilityStart}|${availabilityEnd}`} variant="results" initialQuery={busca} initialGenres={initialGenres} initialInstruments={initialInstruments} initialAvailabilityStart={hasValidAvailabilityRange ? availabilityStart : ""} initialAvailabilityEnd={hasValidAvailabilityRange ? availabilityEnd : ""} />
         </section>}
 
@@ -188,7 +199,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             </div>
             {isSearchResults ? <span className="shrink-0 text-xs text-white/50">{matchingArtists.length} {matchingArtists.length === 1 ? "perfil" : "perfis"}</span> : <Link href="#busca" className="shrink-0 text-xs font-semibold text-[#D6A0FF] transition hover:text-white lg:text-sm">Ver todos →</Link>}
           </div>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-6">
+          <div className="mobile-card-grid grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-6">
             {matchingArtists.map((artist) => <ArtistCard key={artist.id} artist={artist} />)}
           </div>
           {matchingArtists.length === 0 && <p className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-white/55">{noResultsMessage}</p>}

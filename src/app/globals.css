@@ -45,3 +45,83 @@ input {
   background: rgb(108 30 231 / 55%);
   color: #fff;
 }
+
+@keyframes mobile-rise-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes mobile-hero-breathe {
+  0%,
+  100% {
+    transform: scale(1.01);
+  }
+  50% {
+    transform: scale(1.045);
+  }
+}
+
+@keyframes music-ambient-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(var(--music-rotation, 0deg));
+  }
+  50% {
+    transform: translate3d(0, -9px, 0) rotate(var(--music-rotation, 0deg));
+  }
+}
+
+.music-ambient-symbol {
+  animation: music-ambient-drift 18s ease-in-out infinite;
+}
+
+.music-ambient-symbol-delay {
+  animation-delay: -7s;
+}
+
+.music-ambient-symbol-slow {
+  animation-duration: 24s;
+  animation-delay: -12s;
+}
+
+@media (max-width: 1023px) and (prefers-reduced-motion: no-preference) {
+  .mobile-section-enter {
+    animation: mobile-rise-in 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .mobile-hero-image {
+    animation: mobile-hero-breathe 14s ease-in-out infinite;
+    will-change: transform;
+  }
+
+  .mobile-card-grid > * {
+    animation: mobile-rise-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .mobile-card-grid > :nth-child(2n) {
+    animation-delay: 70ms;
+  }
+
+  .mobile-search-shortcut {
+    will-change: opacity, transform;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .mobile-section-enter,
+  .mobile-hero-image,
+  .mobile-card-grid > *,
+  .music-ambient-symbol {
+    animation: none;
+  }
+}

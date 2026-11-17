@@ -19,6 +19,9 @@ export type Artist = {
   demoReviews?: DemoReview[];
   rankingPosition?: number;
   rankingPoints?: number;
+  estimatedPrice?: number | null;
+  priceUnit?: "hourly" | "show";
+  acceptsDifferentProposals?: boolean;
 };
 
 export const featuredArtists: Artist[] = [

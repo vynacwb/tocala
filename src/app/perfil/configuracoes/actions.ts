@@ -40,6 +40,10 @@ export async function saveProfileSettings(
   const username = String(formData.get("username") ?? "").trim().replace(/^@/, "").toLowerCase();
   const contactEmail = String(formData.get("contactEmail") ?? "").trim().toLowerCase();
   const contactPhone = String(formData.get("contactPhone") ?? "").trim();
+  const estimatedPriceInput = String(formData.get("estimatedPrice") ?? "").trim();
+  const priceUnit = String(formData.get("priceUnit") ?? "show");
+  const acceptsDifferentProposals = formData.get("acceptsDifferentProposals") === "true";
+  const estimatedPrice = estimatedPriceInput ? Number(estimatedPriceInput) : null;
   const city = String(formData.get("city") ?? "").trim();
   const state = String(formData.get("state") ?? "").trim().toUpperCase();
   const genres = [...new Set(formData.getAll("genres").map((value) => String(value).trim()))];
@@ -55,6 +59,8 @@ export async function saveProfileSettings(
   if (!/^[a-z0-9._-]{3,30}$/.test(username)) return errorState("O usuário deve ter de 3 a 30 caracteres: letras, números, ponto, hífen ou underline.");
   if (contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) return errorState("Informe um e-mail de contato válido.");
   if (contactPhone.length > 30 || (contactPhone && contactPhone.replace(/\D/g, "").length < 8)) return errorState("Informe um WhatsApp válido com pelo menos 8 dígitos.");
+  if (estimatedPriceInput && (!Number.isFinite(estimatedPrice) || estimatedPrice! < 0 || estimatedPrice! > 99_999_999.99)) return errorState("Informe um valor estimado válido.");
+  if (priceUnit !== "hourly" && priceUnit !== "show") return errorState("Selecione se o valor estimado é por hora ou por show.");
   if (city.length > 100 || (state && !/^[A-Z]{2}$/.test(state)) || (Boolean(city) !== Boolean(state))) return errorState("Preencha cidade e sigla do estado juntos (por exemplo, São Paulo e SP).");
   if (genres.length === 0 || genres.length > MUSIC_GENRES.length || genres.some((item) => !allowedGenres.has(item))) return errorState("Selecione pelo menos um estilo musical da lista.");
   if (instruments.length > MUSIC_INSTRUMENTS.length || instruments.some((instrument) => !allowedInstruments.has(instrument))) return errorState("Selecione instrumentos da lista disponível.");
@@ -101,6 +107,9 @@ export async function saveProfileSettings(
       username,
       contact_email: contactEmail,
       contact_phone: contactPhone,
+      estimated_price: estimatedPrice,
+      price_unit: priceUnit,
+      accepts_different_proposals: acceptsDifferentProposals,
       city,
       state,
       profile_visible: true,
@@ -117,6 +126,7 @@ export async function saveProfileSettings(
 
   if (profileError) {
     if (profileError.code === "23505") return errorState("Este nome de usuário já está em uso.");
+    if (profileError.code === "42703" || profileError.code === "PGRST204") return errorState("Aplique a migration de valores de contratação no Supabase e tente salvar novamente.");
     return errorState("Não foi possível salvar as alterações do perfil.");
   }
 
@@ -127,6 +137,7 @@ export async function saveProfileSettings(
         stage_name: stageName || realName,
         bio_description: bio,
         musical_genres: genres,
+        base_fee: estimatedPrice,
         portfolio_links: portfolioLinks,
       },
       { onConflict: "user_id" },
