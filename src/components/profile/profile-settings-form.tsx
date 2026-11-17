@@ -43,7 +43,7 @@ function PhotoUrlField({ value, onChange, label }: { value: string; onChange: (v
             onChange={(event) => onChange(event.target.value)}
             placeholder="https://imagem..."
             aria-label={`${label}, URL da imagem`}
-            className="h-8 w-full bg-transparent px-1 text-xs text-white outline-none placeholder:text-white/35"
+            className="h-11 w-full bg-transparent px-2 text-base text-white outline-none placeholder:text-white/35 sm:text-xs"
           />
         </div>
       </div>
@@ -171,7 +171,7 @@ export function ProfileSettingsForm({ initialData, configured }: { initialData: 
             <div className="mt-4 rounded-xl border border-white/10 bg-[#101010]/50 p-3">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-xs font-medium text-white/75">Ajustar enquadramento</p>
-                <button type="button" onClick={() => { setAvatarPositionX(50); setAvatarPositionY(50); }} className="text-xs text-[#D6A0FF] transition hover:text-white">Centralizar</button>
+                <button type="button" onClick={() => { setAvatarPositionX(50); setAvatarPositionY(50); }} className="tap-target inline-flex items-center rounded-lg px-2 text-xs text-[#D6A0FF] transition-all duration-200 hover:bg-white/[0.04] hover:text-white">Centralizar</button>
               </div>
               <p className="mt-1 text-[11px] leading-relaxed text-white/40">Mova o foco para escolher qual parte da foto aparece no perfil.</p>
               <label className="mt-3 block">
@@ -364,7 +364,7 @@ export function ProfileSettingsForm({ initialData, configured }: { initialData: 
               <div className="mb-5 flex items-center justify-between gap-4">
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[#D6A0FF]">Experiência {String(experienceIndex + 1).padStart(2, "0")}</span>
                 {experiences.length > 1 && (
-                  <button type="button" onClick={() => setExperiences((current) => current.filter((item) => item.id !== experience.id))} className="flex size-9 items-center justify-center rounded-xl text-white/40 transition hover:bg-rose-500/10 hover:text-rose-300" aria-label={`Remover experiência ${experienceIndex + 1}`}>
+                  <button type="button" onClick={() => setExperiences((current) => current.filter((item) => item.id !== experience.id))} className="tap-target flex items-center justify-center rounded-xl text-white/40 transition-all duration-200 hover:bg-rose-500/10 hover:text-rose-300 active:scale-95" aria-label={`Remover experiência ${experienceIndex + 1}`}>
                     <Trash2 className="size-4" />
                   </button>
                 )}
@@ -389,15 +389,15 @@ export function ProfileSettingsForm({ initialData, configured }: { initialData: 
           ))}
         </div>
 
-        <button type="button" onClick={addExperience} className="mt-5 flex h-14 w-full items-center justify-between rounded-2xl border border-dashed border-[#BA3BE7]/45 bg-[#6C1EE7]/10 px-5 text-sm font-semibold text-[#D6A0FF] transition hover:border-[#BA3BE7] hover:bg-[#6C1EE7]/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7]">
+        <button type="button" onClick={addExperience} className="tap-target mt-5 flex h-14 w-full items-center justify-between rounded-2xl border border-dashed border-[#BA3BE7]/45 bg-[#6C1EE7]/10 px-5 text-sm font-semibold text-[#D6A0FF] transition-all duration-200 hover:border-[#BA3BE7] hover:bg-[#6C1EE7]/20 active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7]">
           <span>Adicionar experiência</span><Plus className="size-5" />
         </button>
       </section>
 
       {!configured && <p className="rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">Conecte o Supabase para habilitar o salvamento. A tela está em modo de demonstração.</p>}
 
-      <div className="sticky bottom-4 z-20 flex items-center justify-end gap-3 rounded-2xl border border-white/10 bg-[#1A1A1A]/90 p-3 shadow-2xl shadow-black/50 backdrop-blur-xl sm:p-4">
-        <Link href="/perfil" className="inline-flex h-12 items-center justify-center rounded-xl border border-white/15 px-4 text-sm font-semibold text-white/70 transition hover:border-white/30 hover:text-white">Pular personalização</Link>
+      <div className="sticky bottom-[calc(env(safe-area-inset-bottom)+12px)] z-30 flex flex-col-reverse items-stretch gap-2 rounded-2xl border border-white/10 bg-[#1A1A1A]/92 p-3 shadow-2xl shadow-black/50 backdrop-blur-xl min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-end sm:p-4">
+        <Link href="/perfil" className="tap-target inline-flex h-12 items-center justify-center rounded-xl border border-white/15 px-4 text-sm font-semibold text-white/70 transition-all duration-200 hover:border-white/30 hover:bg-white/[0.04] hover:text-white active:scale-[0.98]">Pular personalização</Link>
         <Button type="submit" className="min-w-36" disabled={pending || !configured}>
           {pending ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />}
           {pending ? "Salvando..." : "Salvar perfil"}

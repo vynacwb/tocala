@@ -40,18 +40,18 @@ export function MonthCalendar({ month, onMonthChange, onSelectDate, statuses = {
     onMonthChange(new Date(year, monthIndex + amount, 1));
   }
 
-  return <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#1B1B1E]">
+  return <div className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-[#1B1B1E]">
     <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 sm:px-5">
-      <button type="button" onClick={() => changeMonth(-1)} disabled={monthStart <= currentMonth} className="flex size-10 items-center justify-center rounded-xl bg-white/5 text-white/75 transition hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-25" aria-label="Mês anterior"><ChevronLeft className="size-5" /></button>
-      <h3 className="text-base font-semibold capitalize text-white/90 sm:text-lg">{title}</h3>
-      <button type="button" onClick={() => changeMonth(1)} className="flex size-10 items-center justify-center rounded-xl bg-white/5 text-white/75 transition hover:bg-white/10 hover:text-white" aria-label="Próximo mês"><ChevronRight className="size-5" /></button>
+      <button type="button" onClick={() => changeMonth(-1)} disabled={monthStart <= currentMonth} className="tap-target flex shrink-0 items-center justify-center rounded-xl bg-white/5 text-white/75 transition-all duration-200 hover:bg-white/10 hover:text-white active:scale-95 disabled:cursor-not-allowed disabled:opacity-25 disabled:active:scale-100" aria-label="Mês anterior"><ChevronLeft className="size-5" /></button>
+      <h3 className="px-2 text-center text-sm font-semibold capitalize text-white/90 min-[360px]:text-base sm:text-lg">{title}</h3>
+      <button type="button" onClick={() => changeMonth(1)} className="tap-target flex shrink-0 items-center justify-center rounded-xl bg-white/5 text-white/75 transition-all duration-200 hover:bg-white/10 hover:text-white active:scale-95" aria-label="Próximo mês"><ChevronRight className="size-5" /></button>
     </div>
 
     <div className="grid grid-cols-7 bg-[#6C1EE7] py-2 text-center text-[11px] font-medium text-white/90 sm:text-xs">
       {weekdays.map((day) => <span key={day}>{day}</span>)}
     </div>
 
-    <div className="grid grid-cols-7 gap-y-1 p-2 sm:gap-y-2 sm:p-3">
+    <div className="grid min-w-0 grid-cols-7 gap-y-1 p-1.5 min-[360px]:p-2 sm:gap-y-2 sm:p-3">
       {Array.from({ length: cellCount }, (_, index) => {
         const dayNumber = index - firstWeekdayOffset + 1;
         if (dayNumber < 1 || dayNumber > daysInMonth) return <span key={`empty-${index}`} className="aspect-square" aria-hidden="true" />;
@@ -70,7 +70,7 @@ export function MonthCalendar({ month, onMonthChange, onSelectDate, statuses = {
               ? statusClasses[status]
               : "text-white/85 hover:bg-white/10";
 
-        return <button key={key} type="button" onClick={() => onSelectDate(key)} disabled={disabled} aria-pressed={Boolean(selectedEndpoint || inRange)} aria-label={`${formatDayLabel(date)}${status ? `, ${statusLabels[status]}` : ""}`} className={`relative mx-auto flex aspect-square w-full max-w-12 items-center justify-center rounded-xl text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#BA3BE7] disabled:cursor-not-allowed disabled:text-white/20 disabled:hover:bg-transparent ${classes} ${key === today && !selectedEndpoint ? "ring-1 ring-inset ring-white/40" : ""}`}>
+        return <button key={key} type="button" onClick={() => onSelectDate(key)} disabled={disabled} aria-pressed={Boolean(selectedEndpoint || inRange)} aria-label={`${formatDayLabel(date)}${status ? `, ${statusLabels[status]}` : ""}`} className={`relative mx-auto flex min-h-11 w-full max-w-12 items-center justify-center rounded-xl text-sm transition-all duration-200 active:scale-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#BA3BE7] disabled:cursor-not-allowed disabled:text-white/20 disabled:hover:bg-transparent disabled:active:scale-100 ${classes} ${key === today && !selectedEndpoint ? "ring-1 ring-inset ring-white/40" : ""}`}>
           {dayNumber}
           {status && !selectedEndpoint && <span className={`absolute bottom-1 size-1 rounded-full ${status === "available" ? "bg-emerald-300" : status === "busy" ? "bg-amber-300" : "bg-rose-300"}`} aria-hidden="true" />}
         </button>;

@@ -199,18 +199,18 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
     <div className="mx-auto min-h-dvh max-w-[400px] bg-[#1A1A1A] shadow-2xl shadow-black/40 lg:max-w-none lg:bg-[#101010] lg:shadow-none">
       <header className="fixed left-1/2 top-0 z-50 w-full max-w-[400px] -translate-x-1/2 border-b border-white/10 bg-[#1A1A1A]/95 backdrop-blur-xl lg:max-w-none">
         <div className="relative mx-auto flex h-[calc(env(safe-area-inset-top)+76px)] max-w-[1200px] items-center justify-between px-5 pt-[env(safe-area-inset-top)] lg:h-20 lg:px-6 lg:pt-0">
-          <Link href="/" className="flex size-10 items-center justify-center rounded-xl border border-white/15 bg-white/5 text-[#D6A0FF] transition hover:border-[#BA3BE7] hover:bg-[#6C1EE7]/15" aria-label="Voltar para o início"><ArrowLeft className="size-5" /></Link>
+          <Link href="/" className="tap-target flex items-center justify-center rounded-xl border border-white/15 bg-white/5 text-[#D6A0FF] transition-all duration-200 hover:border-[#BA3BE7] hover:bg-[#6C1EE7]/15 active:scale-95" aria-label="Voltar para o início"><ArrowLeft className="size-5" /></Link>
           <div className="absolute left-1/2 -translate-x-1/2"><Brand compact /></div>
           <div className="flex items-center gap-2">
             {!isPublicView && <>
             <div className="hidden items-center gap-2 lg:flex">
-              <Link href="/perfil/disponibilidade" className="flex size-10 items-center justify-center rounded-xl border border-white/15 bg-white/5 text-white/70 transition hover:border-[#BA3BE7] hover:text-[#D6A0FF]" aria-label="Disponibilidade">
+              <Link href="/perfil/disponibilidade" className="tap-target flex items-center justify-center rounded-xl border border-white/15 bg-white/5 text-white/70 transition-all duration-200 hover:border-[#BA3BE7] hover:text-[#D6A0FF] active:scale-95" aria-label="Disponibilidade">
                 <CalendarDays className="size-5" strokeWidth={1.8} />
               </Link>
-              <Link href="/perfil/configuracoes" className="flex size-10 items-center justify-center rounded-xl border border-white/15 bg-white/5 text-white/70 transition hover:border-[#BA3BE7] hover:text-[#D6A0FF]" aria-label="Personalização do perfil">
+              <Link href="/perfil/configuracoes" className="tap-target flex items-center justify-center rounded-xl border border-white/15 bg-white/5 text-white/70 transition-all duration-200 hover:border-[#BA3BE7] hover:text-[#D6A0FF] active:scale-95" aria-label="Personalização do perfil">
                 <Pencil className="size-5" strokeWidth={1.8} />
               </Link>
-              <Link href="/perfil/conta" className="flex size-10 items-center justify-center rounded-xl border border-white/15 bg-white/5 text-white/70 transition hover:border-[#BA3BE7] hover:text-[#D6A0FF]" aria-label="Configurações">
+              <Link href="/perfil/conta" className="tap-target flex items-center justify-center rounded-xl border border-white/15 bg-white/5 text-white/70 transition-all duration-200 hover:border-[#BA3BE7] hover:text-[#D6A0FF] active:scale-95" aria-label="Configurações">
                 <Settings className="size-5" strokeWidth={1.8} />
               </Link>
               <SignOutButton configured={configured} />

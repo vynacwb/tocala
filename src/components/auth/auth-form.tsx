@@ -94,7 +94,7 @@ export function AuthForm({ configured }: { configured: boolean }) {
         <Input id="email" name="email" label="E-mail" type="email" autoComplete="email" required placeholder="seu@email.com" />
         <div className="relative">
           <Input id="password" name="password" label="Senha" type={showPassword ? "text" : "password"} autoComplete={isRegistering ? "new-password" : "current-password"} minLength={6} required placeholder="Digite sua senha" className="pr-14" />
-          <button type="button" onClick={() => setShowPassword((value) => !value)} className="absolute bottom-0 right-1 flex h-14 w-12 items-center justify-center text-white/45 transition hover:text-[#D6A0FF]" aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}>
+          <button type="button" onClick={() => setShowPassword((value) => !value)} className="tap-target absolute bottom-0 right-1 flex h-14 w-12 items-center justify-center rounded-xl text-white/45 transition-all duration-200 hover:bg-white/[0.04] hover:text-[#D6A0FF] active:scale-95" aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}>
             {showPassword ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
           </button>
         </div>
@@ -108,7 +108,7 @@ export function AuthForm({ configured }: { configured: boolean }) {
 
       <p className="mt-7 text-center text-sm text-white/60">
         {isRegistering ? "Já tem uma conta?" : "Não tem uma conta?"}
-        <button type="button" onClick={() => { setMode(isRegistering ? "login" : "register"); setError(""); }} className="ml-1 font-semibold text-[#D6A0FF] transition hover:text-white">
+        <button type="button" onClick={() => { setMode(isRegistering ? "login" : "register"); setError(""); }} className="tap-target ml-1 inline-flex items-center rounded-lg px-1 font-semibold text-[#D6A0FF] transition-all duration-200 hover:text-white">
           {isRegistering ? "Entrar" : "Cadastre-se"}
         </button>
       </p>

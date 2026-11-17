@@ -121,11 +121,10 @@ export default async function RankingPage() {
 
             <div className="mx-auto max-w-[650px] space-y-4 sm:space-y-5 lg:space-y-6">
               {podium.map((artist, index) => (
-                <Link key={artist.id} href={`/perfil?artista=${encodeURIComponent(artist.id)}`} className={`group flex min-h-[66px] items-center gap-3 rounded-[17px] border-2 bg-black px-3 py-2 text-white transition hover:-translate-y-0.5 hover:border-[#BA3BE7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#BA3BE7] sm:min-h-[78px] sm:gap-5 sm:px-5 ${placeStyles[index]} ${index === 0 ? "border-[3px]" : ""}`}>
+                <Link key={artist.id} href={`/perfil?artista=${encodeURIComponent(artist.id)}`} className={`group grid min-h-[72px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-[17px] border-2 bg-black px-3 py-2 text-white transition-all duration-200 hover:-translate-y-0.5 hover:border-[#BA3BE7] active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#BA3BE7] sm:min-h-[78px] sm:gap-5 sm:px-5 ${placeStyles[index]} ${index === 0 ? "border-[3px]" : ""}`}>
                   <span className={`min-w-[54px] text-left font-bold leading-none sm:min-w-[78px] ${index === 0 ? "text-[36px] sm:text-[48px]" : index === 1 ? "text-[32px] sm:text-[42px]" : "text-[26px] sm:text-[34px]"}`}>{index + 1}°</span>
                   <span className={`min-w-0 flex-1 truncate text-center font-semibold ${index === 0 ? "text-[19px] sm:text-[28px]" : index === 1 ? "text-[17px] sm:text-[24px]" : "text-[15px] sm:text-[20px]"}`}>{artist.name}</span>
-                  <RankingMedal position={artist.rankingPosition} compact />
-                  <RankingPointsBadge compact points={artist.totalStars} />
+                  <span className="flex shrink-0 items-center gap-1.5"><RankingMedal position={artist.rankingPosition} compact /><RankingPointsBadge compact points={artist.totalStars} /></span>
                   <span className="sr-only">, nota {artist.average ? artist.average.toLocaleString("pt-BR", { maximumFractionDigits: 1 }) : "sem avaliações"}, {artist.reviewCount} avaliações</span>
                 </Link>
               ))}
@@ -138,10 +137,10 @@ export default async function RankingPage() {
               <ol className="max-h-[300px] space-y-2 overflow-y-auto pr-2 [scrollbar-color:#711EC9_#292929] [scrollbar-width:thin]">
                 {others.map((artist, index) => (
                   <li key={artist.id}>
-                    <Link href={`/perfil?artista=${encodeURIComponent(artist.id)}`} className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/65 px-3 py-2.5 transition hover:border-[#711EC9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#BA3BE7]">
+                    <Link href={`/perfil?artista=${encodeURIComponent(artist.id)}`} className="grid min-h-11 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2 rounded-xl border border-white/10 bg-black/65 px-3 py-2.5 transition-all duration-200 hover:border-[#711EC9] active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#BA3BE7] sm:grid-cols-[auto_minmax(0,1fr)_auto]">
                       <span className="w-8 text-sm font-bold text-white/55">{index + 4}°</span>
                       <span className="min-w-0 flex-1 truncate text-sm font-medium">{artist.name}</span>
-                      <div className="flex shrink-0 items-center gap-2">
+                      <div className="col-span-2 flex min-w-0 flex-wrap items-center justify-end gap-2 sm:col-span-1 sm:flex-nowrap">
                         <RankingMedal position={artist.rankingPosition} compact />
                         <RatingStars rating={artist.average} totalStars={artist.totalStars} />
                         <RankingPointsBadge compact points={artist.totalStars} />

@@ -30,16 +30,16 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div className="fixed left-4 top-4 z-[100] flex w-[min(360px,calc(100vw-2rem))] flex-col gap-3" aria-live="polite">
+      <div className="pointer-events-none fixed inset-x-3 top-[calc(env(safe-area-inset-top)+12px)] z-[120] mx-auto flex w-auto max-w-[380px] flex-col gap-3 sm:inset-x-auto sm:left-4 sm:mx-0 sm:w-[360px]" aria-live="polite" aria-atomic="true">
         {toasts.map((item) => (
-          <div key={item.id} className="flex items-start gap-3 rounded-xl border border-white/10 bg-[#222226]/95 p-4 text-sm shadow-2xl shadow-black/40 backdrop-blur-xl">
+          <div key={item.id} role={item.tone === "error" ? "alert" : "status"} className="toast-enter pointer-events-auto flex min-w-0 items-start gap-3 rounded-2xl border border-white/10 bg-[#222226]/95 p-3 pl-4 text-sm shadow-2xl shadow-black/50 backdrop-blur-xl sm:p-4">
             {item.tone === "success" ? (
               <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-emerald-400" />
             ) : (
               <CircleAlert className="mt-0.5 size-5 shrink-0 text-rose-400" />
             )}
-            <p className="flex-1 text-white/85">{item.message}</p>
-            <button type="button" onClick={() => remove(item.id)} className="text-white/45 transition hover:text-white" aria-label="Fechar notificação">
+            <p className="min-w-0 flex-1 break-words py-1.5 leading-relaxed text-white/85 [overflow-wrap:anywhere]">{item.message}</p>
+            <button type="button" onClick={() => remove(item.id)} className="tap-target -m-1 flex shrink-0 items-center justify-center rounded-xl text-white/45 transition-all duration-200 hover:bg-white/[0.06] hover:text-white active:scale-95" aria-label="Fechar notificação">
               <X className="size-4" />
             </button>
           </div>

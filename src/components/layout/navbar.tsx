@@ -31,8 +31,8 @@ export async function Navbar() {
         <div className="flex items-center justify-between">
           <Brand href="/#explorar" />
           {!account && <div className="ml-auto flex items-center gap-2 lg:hidden">
-            <Link href="/login" className="inline-flex h-9 items-center justify-center rounded-lg border border-white/20 px-3 text-xs font-semibold text-white/85 transition hover:border-[#BA3BE7] hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7]">Login</Link>
-            <Link href="/login?modo=cadastro" className="inline-flex h-9 items-center justify-center rounded-lg bg-[#6C1EE7] px-3 text-xs font-semibold text-white transition hover:bg-[#BA3BE7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7]">Register</Link>
+            <Link href="/login" className="tap-target inline-flex h-11 items-center justify-center rounded-xl border border-white/20 px-3 text-xs font-semibold text-white/85 transition-all duration-200 hover:border-[#BA3BE7] hover:bg-white/5 hover:text-white active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7]">Login</Link>
+            <Link href="/login?modo=cadastro" className="tap-target inline-flex h-11 items-center justify-center rounded-xl bg-[#6C1EE7] px-3 text-xs font-semibold text-white transition-all duration-200 hover:bg-[#BA3BE7] active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7]">Register</Link>
           </div>}
         </div>
 
@@ -49,8 +49,8 @@ export async function Navbar() {
 
         <div className="hidden items-center gap-4 lg:flex">
           {!account && <>
-            <Link href="/login" className="inline-flex h-9 items-center justify-center rounded-lg border border-white/20 px-3 text-xs font-semibold text-white/85 transition hover:border-[#BA3BE7] hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7] lg:h-10 lg:px-4 lg:text-sm">Login</Link>
-            <Link href="/login?modo=cadastro" className="inline-flex h-9 items-center justify-center rounded-lg bg-[#6C1EE7] px-3 text-xs font-semibold text-white transition hover:bg-[#BA3BE7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7] lg:h-10 lg:px-4 lg:text-sm">Register</Link>
+            <Link href="/login" className="tap-target inline-flex h-11 items-center justify-center rounded-xl border border-white/20 px-3 text-xs font-semibold text-white/85 transition-all duration-200 hover:border-[#BA3BE7] hover:bg-white/5 hover:text-white active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7] lg:px-4 lg:text-sm">Login</Link>
+            <Link href="/login?modo=cadastro" className="tap-target inline-flex h-11 items-center justify-center rounded-xl bg-[#6C1EE7] px-3 text-xs font-semibold text-white transition-all duration-200 hover:bg-[#BA3BE7] active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7] lg:px-4 lg:text-sm">Register</Link>
           </>}
           {account && <NotificationBell profileId={account.profileId} variant="desktop" />}
           {account && <div className="hidden lg:block"><AccountMenu account={account} configured={configured} /></div>}
