@@ -277,6 +277,16 @@ export function ContractDemoFlow({ artist }: { artist: Artist }) {
   }
 
   const canGoBack = stage !== "details";
+  function simulateProposalSend() {
+    addUserNotification(artist.id, {
+      type: "contract-proposal",
+      title: "Você recebeu uma proposta de contrato",
+      detail: `Nova proposta para ${draft.eventTitle} em ${formatEventDate(draft.eventDate)}. Confira os detalhes para aceitar ou enviar uma contraproposta.`,
+    });
+    setStage("sent");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   function goBack() {
     const previous: Record<Exclude<Stage, "details">, Stage> = {
       contract: "details", sent: "contract", artist: "sent", adjustment: "artist", escrow: "artist", checkin: "escrow", review: "checkin",
@@ -381,7 +391,7 @@ export function ContractDemoFlow({ artist }: { artist: Artist }) {
           <p>As informações digitadas servem apenas para montar este resumo temporário. Não inclua dados pessoais ou sensíveis; a proposta não é enviada nem gravada no sistema.</p>
         </div>
         <div className="mt-4"><CheckOption checked={buyerAccepted} onChange={setBuyerAccepted}>Li os detalhes e aceito continuar com esta proposta fictícia.</CheckOption></div>
-        <button type="button" disabled={!buyerAccepted} onClick={() => setStage("sent")} className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#6C1EE7] px-5 text-sm font-semibold text-white transition hover:bg-[#BA3BE7] disabled:cursor-not-allowed disabled:opacity-45">Aceitar e simular envio ao artista <ArrowRight className="size-4" /></button>
+        <button type="button" disabled={!buyerAccepted} onClick={simulateProposalSend} className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#6C1EE7] px-5 text-sm font-semibold text-white transition hover:bg-[#BA3BE7] disabled:cursor-not-allowed disabled:opacity-45">Aceitar e simular envio ao artista <ArrowRight className="size-4" /></button>
       </section>}
 
       {stage === "sent" && <section className="rounded-2xl border border-white/10 bg-[#222226] p-6 text-center sm:p-10">

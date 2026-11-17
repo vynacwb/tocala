@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Bell, Check, MoreVertical, Settings } from "lucide-react";
+import { Bell, Check, FileSignature, MoreVertical, Settings } from "lucide-react";
 import { getUserNotifications, updateUserNotifications, USER_NOTIFICATIONS_CHANGE_EVENT, type UserNotification } from "@/lib/user-notifications";
 
 function relativeTime(value: string) {
@@ -67,7 +67,7 @@ export function NotificationBell({ profileId, variant = "desktop" }: { profileId
       <div className="overlay-scroll min-h-0 overflow-y-auto">
         <p className="px-4 pb-2 pt-3 text-xs font-semibold text-white/45 sm:px-5">Recentes</p>
         {visibleNotifications.map((item) => <article key={item.id} className={`group flex gap-3 px-4 py-3 transition hover:bg-white/[0.035] sm:px-5 ${item.read ? "opacity-65" : ""}`}>
-          <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[#6C1EE7]/25 text-[#E4C9FF]"><Bell className="size-5" /></span>
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[#6C1EE7]/25 text-[#E4C9FF]">{item.type === "contract-proposal" ? <FileSignature className="size-5" /> : <Bell className="size-5" />}</span>
           <button type="button" onClick={() => setNotifications(updateUserNotifications(profileId, (items) => items.map((entry) => entry.id === item.id ? { ...entry, read: true } : entry)))} className="min-h-11 min-w-0 flex-1 rounded-lg text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7]">
             <p className="text-sm leading-snug text-white/90">{item.title}</p><p className="mt-1 text-xs leading-relaxed text-white/55">{item.detail}</p><p className="mt-1.5 text-[11px] text-white/40">{relativeTime(item.createdAt)}</p>
           </button>
