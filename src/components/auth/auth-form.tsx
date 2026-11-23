@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/providers/app-providers";
 import { createClient } from "@/utils/supabase/client";
+import { setBrowserSessionPersistence } from "@/utils/supabase/session-persistence";
 
 type Mode = "login" | "register";
 type SocialProvider = "google" | "linkedin_oidc" | "spotify";
@@ -31,6 +32,7 @@ export function AuthForm({ configured }: { configured: boolean }) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingProvider, setLoadingProvider] = useState<SocialProvider | null>(null);
+  const [rememberSession, setRememberSession] = useState(true);
   const [error, setError] = useState(() => callbackErrorMessage(searchParams.get("erro")));
   const router = useRouter();
   const { toast } = useToast();
@@ -49,6 +51,7 @@ export function AuthForm({ configured }: { configured: boolean }) {
     }
 
     setLoadingProvider(provider);
+    if (!isRegistering) setBrowserSessionPersistence(rememberSession);
     const supabase = createClient();
     const socialDestination = isRegistering ? "/perfil/configuracoes" : postLoginDestination;
     const callbackUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent(socialDestination)}`;
@@ -84,6 +87,7 @@ export function AuthForm({ configured }: { configured: boolean }) {
     }
 
     setLoading(true);
+    if (!isRegistering) setBrowserSessionPersistence(rememberSession);
     const supabase = createClient();
 
     if (isRegistering) {
@@ -127,7 +131,13 @@ export function AuthForm({ configured }: { configured: boolean }) {
       <h1 className="mt-5 text-[34px] font-bold leading-tight tracking-[-0.045em] sm:text-[40px]">{isRegistering ? "Crie sua conta" : "Acesse seu palco"}</h1>
       <p className="mt-2 text-sm leading-relaxed text-white/60">{isRegistering ? "Faça parte da comunidade que vive de música ao vivo." : "Entre para encontrar talentos, oportunidades e novas conexões."}</p>
 
-      <div className="mt-8 grid gap-2.5 sm:grid-cols-3" aria-label="Entrar com uma conta social">
+      {!isRegistering && <label className="mt-5 flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/[0.035] px-4 py-3 transition hover:border-[#BA3BE7]/45 hover:bg-[#6C1EE7]/10">
+        <span className="min-w-0"><span className="block text-sm font-semibold text-white/85">Manter-me conectado</span><span className="mt-0.5 block text-xs leading-relaxed text-white/45">Continue conectado mesmo depois de fechar o navegador.</span></span>
+        <input type="checkbox" name="rememberSession" checked={rememberSession} onChange={(event) => setRememberSession(event.target.checked)} className="peer sr-only" />
+        <span className="relative h-7 w-12 shrink-0 rounded-full border border-white/15 bg-white/10 transition peer-checked:border-[#BA3BE7]/60 peer-checked:bg-[#6C1EE7] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[#BA3BE7] after:absolute after:left-1 after:top-1 after:size-[18px] after:rounded-full after:bg-white after:shadow-md after:transition-transform after:content-[''] peer-checked:after:translate-x-5" aria-hidden="true" />
+      </label>}
+
+      <div className={`${isRegistering ? "mt-8" : "mt-5"} grid gap-2.5 sm:grid-cols-3`} aria-label="Entrar com uma conta social">
         {socialProviders.map((provider) => <button key={provider.id} type="button" disabled={loading || loadingProvider !== null} onClick={() => handleSocialLogin(provider.id)} className="tap-target inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-3 text-sm font-semibold text-white/80 transition hover:border-[#BA3BE7]/70 hover:bg-[#6C1EE7]/15 hover:text-white disabled:cursor-not-allowed disabled:opacity-55">
           {loadingProvider === provider.id ? <LoaderCircle className="size-4 animate-spin" /> : <span className="flex size-5 items-center justify-center rounded-full bg-white text-[11px] font-black text-[#1A1A1A]" aria-hidden="true">{provider.mark}</span>}
           {provider.label}
