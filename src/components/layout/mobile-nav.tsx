@@ -5,12 +5,11 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { CircleDollarSign, House, Trophy, UserRound } from "lucide-react";
-import { NotificationBell } from "@/components/layout/notification-bell";
 import { readStoredDemoReviews, removeStoredDemoReviews } from "@/lib/demo-reviews";
 import { createClient } from "@/utils/supabase/client";
 import { isSupabaseConfigured } from "@/utils/supabase/config";
 
-type Account = { profileId: string; avatarUrl: string | null; avatarPositionX: number; avatarPositionY: number };
+type Account = { avatarUrl: string | null; avatarPositionX: number; avatarPositionY: number };
 
 export function MobileNav() {
   const pathname = usePathname();
@@ -41,7 +40,6 @@ export function MobileNav() {
         if (!error) removeStoredDemoReviews(pendingReviews.map((review) => review.id));
       }
       if (active) setAccount({
-        profileId: user.id,
         avatarUrl: data?.avatar_url ?? null,
         avatarPositionX: data?.avatar_position_x ?? 50,
         avatarPositionY: data?.avatar_position_y ?? 50,
@@ -53,7 +51,7 @@ export function MobileNav() {
 
   return (
     <nav aria-label="Navegação mobile" className="fixed bottom-0 left-1/2 z-50 w-full max-w-[400px] -translate-x-1/2 border-t-2 border-[#6C1EE7] bg-[#202020]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden">
-      <div className={`grid h-[76px] ${account ? "grid-cols-5" : "grid-cols-3"} items-center px-1`}>
+      <div className={`grid h-[76px] ${account ? "grid-cols-4" : "grid-cols-3"} items-center px-1`}>
         <Link href="/#explorar" aria-label="Página inicial" aria-current={isHomeActive ? "page" : undefined} className={`mx-auto flex size-12 flex-col items-center justify-center gap-0.5 rounded-xl transition-all duration-200 active:scale-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#BA3BE7] ${isHomeActive ? "bg-[#6C1EE7]/25 text-[#D6A0FF] shadow-inner shadow-[#BA3BE7]/15" : "text-white/65 hover:bg-white/5 hover:text-[#D6A0FF]"}`}>
           <House className="size-5" strokeWidth={isHomeActive ? 2.3 : 1.8} /><span className="text-[9px] leading-none">Home</span>
         </Link>
@@ -63,7 +61,6 @@ export function MobileNav() {
         {account && <Link href="/financeiro" aria-label="Financeiro" aria-current={isFinanceActive ? "page" : undefined} className={`mx-auto flex size-12 flex-col items-center justify-center gap-0.5 rounded-xl transition-all duration-200 active:scale-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#BA3BE7] ${isFinanceActive ? "bg-[#6C1EE7]/25 text-[#D6A0FF] shadow-inner shadow-[#BA3BE7]/15" : "text-white/65 hover:bg-white/5 hover:text-[#D6A0FF]"}`}>
           <CircleDollarSign className="size-5" strokeWidth={isFinanceActive ? 2.3 : 1.8} /><span className="text-[9px] leading-none">Financeiro</span>
         </Link>}
-        {account && <NotificationBell profileId={account.profileId} variant="mobile" />}
         <Link href="/perfil" aria-label="Abrir perfil" aria-current={isProfileActive ? "page" : undefined} className={`mx-auto flex size-12 flex-col items-center justify-center gap-0.5 overflow-hidden rounded-xl transition-all duration-200 active:scale-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#BA3BE7] ${isProfileActive ? "bg-[#6C1EE7]/25 text-[#D6A0FF] shadow-inner shadow-[#BA3BE7]/15" : "text-white/65 hover:bg-white/5 hover:text-[#D6A0FF]"}`}>
           {account?.avatarUrl ? <Image src={account.avatarUrl} alt="" width={24} height={24} unoptimized style={{ objectPosition: `${account.avatarPositionX}% ${account.avatarPositionY}%` }} className={`size-6 rounded-full object-cover ${isProfileActive ? "ring-1 ring-[#D6A0FF]" : ""}`} /> : <UserRound className="size-5" strokeWidth={isProfileActive ? 2.3 : 1.8} />}
           <span className="text-[9px] leading-none">Perfil</span>

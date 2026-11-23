@@ -15,6 +15,7 @@ import { RankingMedal } from "@/components/ranking/ranking-medal";
 
 type Artist = { id: string; name: string; genre: string; imageUrl: string; rankingPosition?: number; estimatedPrice?: number | null; acceptsDifferentProposals?: boolean };
 type Stage = "details" | "contract" | "sent" | "artist" | "adjustment" | "escrow" | "checkin" | "review";
+type SimulationRole = "contractor" | "artist";
 type Draft = {
   eventTitle: string; eventDate: string; startTime: string; endTime: string; venueName: string; venueAddress: string; venueType: string;
   performanceMinutes: string; arrivalMinutes: string; fee: string; transportationByArtist: boolean; mealProvided: boolean;
@@ -31,7 +32,7 @@ type StoredContractSimulation = {
 };
 
 const steps = ["Proposta", "Aceite", "Artista", "Pagamento", "Check-in", "Avaliação"];
-const inputClass = "h-12 w-full rounded-xl border border-white/10 bg-[#101010]/70 px-3.5 text-base text-white outline-none transition-all duration-200 placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20 sm:text-sm";
+const inputClass = "h-12 w-full rounded-xl border border-white/10 bg-[#101010]/70 px-3.5 text-base text-white outline-none transition-all duration-200 placeholder:text-white/30 focus:border-[#3EA6FF] focus:ring-2 focus:ring-[#3EA6FF]/20 sm:text-sm";
 
 function initialDraft(estimatedPrice?: number | null): Draft {
   return {
@@ -197,19 +198,19 @@ function TimeField({ label, value, onChange, required = false }: { label: string
         <div>
           <p className="text-xs text-white/50">{selecting === "hour" ? "Escolha a hora" : "Escolha os minutos"}</p>
           <div className="mt-2 flex items-center gap-1.5 font-semibold tabular-nums">
-            <button type="button" onClick={() => setSelecting("hour")} aria-label="Selecionar hora" aria-pressed={selecting === "hour"} className={`tap-target rounded-lg px-2.5 text-2xl transition-all duration-200 ${selecting === "hour" ? "bg-[#6C1EE7] text-white ring-2 ring-[#BA3BE7]/60" : "bg-white/[0.06] text-white/70 hover:bg-white/10"}`}>{String(selectedHour).padStart(2, "0")}</button>
+            <button type="button" onClick={() => setSelecting("hour")} aria-label="Selecionar hora" aria-pressed={selecting === "hour"} className={`tap-target rounded-lg px-2.5 text-2xl transition-all duration-200 ${selecting === "hour" ? "bg-[#1565C0] text-white ring-2 ring-[#3EA6FF]/60" : "bg-white/[0.06] text-white/70 hover:bg-white/10"}`}>{String(selectedHour).padStart(2, "0")}</button>
             <span className="text-2xl text-white/60">:</span>
-            <button type="button" onClick={() => setSelecting("minute")} aria-label="Selecionar minutos" aria-pressed={selecting === "minute"} className={`tap-target rounded-lg px-2.5 text-2xl transition-all duration-200 ${selecting === "minute" ? "bg-[#6C1EE7] text-white ring-2 ring-[#BA3BE7]/60" : "bg-white/[0.06] text-white/70 hover:bg-white/10"}`}>{String(selectedMinute).padStart(2, "0")}</button>
+            <button type="button" onClick={() => setSelecting("minute")} aria-label="Selecionar minutos" aria-pressed={selecting === "minute"} className={`tap-target rounded-lg px-2.5 text-2xl transition-all duration-200 ${selecting === "minute" ? "bg-[#1565C0] text-white ring-2 ring-[#3EA6FF]/60" : "bg-white/[0.06] text-white/70 hover:bg-white/10"}`}>{String(selectedMinute).padStart(2, "0")}</button>
           </div>
         </div>
         <button type="button" onClick={() => setClockOpen(false)} className="tap-target rounded-xl px-3 text-xs font-medium text-white/60 transition-all duration-200 hover:bg-white/5 hover:text-white">Fechar</button>
       </div>
       <div onClick={chooseMinuteFromDial} className={`relative mx-auto size-[248px] touch-manipulation rounded-full bg-[#29292D] sm:size-[280px] ${selecting === "minute" ? "cursor-crosshair" : ""}`} aria-label={selecting === "hour" ? "Mostrador de horas: números externos de 0 a 11 e internos de 12 a 23" : "Mostrador de minutos: toque para escolher minutos exatos"}>
-        {selecting === "hour" ? <>{Array.from({ length: 12 }, (_, index) => <button key={`outer-${index}`} type="button" onClick={() => chooseHour(index)} style={dialPosition(index, 98)} className={`absolute z-10 flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-xs transition-all duration-200 before:absolute before:-inset-1.5 before:content-[''] sm:size-9 ${selectedHour === index ? "bg-[#6C1EE7] text-white ring-2 ring-[#D6A0FF]/60" : "text-white/85 hover:bg-white/10"}`}>{index}</button>)}{Array.from({ length: 12 }, (_, index) => { const hour = index + 12; return <button key={`inner-${hour}`} type="button" onClick={() => chooseHour(hour)} style={dialPosition(index, 58)} className={`absolute z-10 flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-xs transition-all duration-200 before:absolute before:-inset-1.5 before:content-[''] sm:size-9 ${selectedHour === hour ? "bg-[#6C1EE7] text-white ring-2 ring-[#D6A0FF]/60" : "text-white/70 hover:bg-white/10"}`}>{hour}</button>; })}</> : Array.from({ length: 12 }, (_, index) => { const minute = index * 5; return <button key={`minute-${minute}`} type="button" onClick={(event) => { event.stopPropagation(); chooseMinute(minute); }} style={dialPosition(index, 98)} aria-label={`${String(minute).padStart(2, "0")} minutos`} className={`absolute z-10 flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-xs transition-all duration-200 before:absolute before:-inset-1.5 before:content-[''] sm:size-9 ${selectedMinute === minute ? "bg-[#6C1EE7] text-white ring-2 ring-[#D6A0FF]/60" : "text-white/85 hover:bg-white/10"}`}>{String(minute).padStart(2, "0")}</button>; })}
-        <span aria-hidden="true" className="absolute z-[1] w-0.5 rounded-full bg-[#BA3BE7]" style={{ left: "calc(50% - 1px)", top: `calc(50% - ${handLength}px)`, height: `${handLength}px`, transform: `rotate(${handAngle}deg)`, transformOrigin: "50% 100%" }} />
-        <span className="absolute left-1/2 top-1/2 z-[2] size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#BA3BE7] shadow-[0_0_10px_#BA3BE7]" />
+        {selecting === "hour" ? <>{Array.from({ length: 12 }, (_, index) => <button key={`outer-${index}`} type="button" onClick={() => chooseHour(index)} style={dialPosition(index, 98)} className={`absolute z-10 flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-xs transition-all duration-200 before:absolute before:-inset-1.5 before:content-[''] sm:size-9 ${selectedHour === index ? "bg-[#1565C0] text-white ring-2 ring-[#8DCAFF]/60" : "text-white/85 hover:bg-white/10"}`}>{index}</button>)}{Array.from({ length: 12 }, (_, index) => { const hour = index + 12; return <button key={`inner-${hour}`} type="button" onClick={() => chooseHour(hour)} style={dialPosition(index, 58)} className={`absolute z-10 flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-xs transition-all duration-200 before:absolute before:-inset-1.5 before:content-[''] sm:size-9 ${selectedHour === hour ? "bg-[#1565C0] text-white ring-2 ring-[#8DCAFF]/60" : "text-white/70 hover:bg-white/10"}`}>{hour}</button>; })}</> : Array.from({ length: 12 }, (_, index) => { const minute = index * 5; return <button key={`minute-${minute}`} type="button" onClick={(event) => { event.stopPropagation(); chooseMinute(minute); }} style={dialPosition(index, 98)} aria-label={`${String(minute).padStart(2, "0")} minutos`} className={`absolute z-10 flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-xs transition-all duration-200 before:absolute before:-inset-1.5 before:content-[''] sm:size-9 ${selectedMinute === minute ? "bg-[#1565C0] text-white ring-2 ring-[#8DCAFF]/60" : "text-white/85 hover:bg-white/10"}`}>{String(minute).padStart(2, "0")}</button>; })}
+        <span aria-hidden="true" className="absolute z-[1] w-0.5 rounded-full bg-[#3EA6FF]" style={{ left: "calc(50% - 1px)", top: `calc(50% - ${handLength}px)`, height: `${handLength}px`, transform: `rotate(${handAngle}deg)`, transformOrigin: "50% 100%" }} />
+        <span className="absolute left-1/2 top-1/2 z-[2] size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#3EA6FF] shadow-[0_0_10px_#3EA6FF]" />
       </div>
-      {selecting === "minute" && <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-white/45"><button type="button" onClick={() => setSelecting("hour")} className="tap-target rounded-lg px-2 text-[#D6A0FF] transition-colors duration-200 hover:bg-white/5">Voltar para a hora</button><span className="min-w-0 flex-1 text-right">Toque no mostrador para escolher o minuto exato</span></div>}
+      {selecting === "minute" && <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-white/45"><button type="button" onClick={() => setSelecting("hour")} className="tap-target rounded-lg px-2 text-[#8DCAFF] transition-colors duration-200 hover:bg-white/5">Voltar para a hora</button><span className="min-w-0 flex-1 text-right">Toque no mostrador para escolher o minuto exato</span></div>}
     </div>}
   </div>;
 }
@@ -218,10 +219,12 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return <label className="block"><span className="mb-2 block text-sm font-medium text-white/80">{label}</span>{children}</label>;
 }
 
-function CheckOption({ checked, onChange, children }: { checked: boolean; onChange: (checked: boolean) => void; children: React.ReactNode }) {
-  return <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 text-sm transition ${checked ? "border-[#BA3BE7]/50 bg-[#6C1EE7]/15 text-white" : "border-white/10 bg-[#101010]/35 text-white/70 hover:border-white/20"}`}>
+function CheckOption({ checked, onChange, children, tone = "artist" }: { checked: boolean; onChange: (checked: boolean) => void; children: React.ReactNode; tone?: SimulationRole }) {
+  const checkedClass = tone === "contractor" ? "border-[#3EA6FF]/55 bg-[#1565C0]/20 text-white" : "border-[#BA3BE7]/50 bg-[#6C1EE7]/15 text-white";
+  const checkmarkClass = tone === "contractor" ? "border-[#3EA6FF] bg-[#1565C0] text-white" : "border-[#BA3BE7] bg-[#6C1EE7] text-white";
+  return <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 text-sm transition ${checked ? checkedClass : "border-white/10 bg-[#101010]/35 text-white/70 hover:border-white/20"}`}>
     <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="sr-only" />
-    <span className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border ${checked ? "border-[#BA3BE7] bg-[#6C1EE7] text-white" : "border-white/25 text-transparent"}`}><Check className="size-3.5" /></span>
+    <span className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border ${checked ? checkmarkClass : "border-white/25 text-transparent"}`}><Check className="size-3.5" /></span>
     <span>{children}</span>
   </label>;
 }
@@ -257,6 +260,12 @@ export function ContractDemoFlow({ artist, isOwnProfile, simulationId }: { artis
   }, [artist.id, isOwnProfile, simulationId, toast]);
 
   const stageIndex = stage === "details" ? 0 : stage === "contract" ? 1 : stage === "sent" || stage === "artist" || stage === "adjustment" ? 2 : stage === "escrow" ? 3 : stage === "checkin" ? 4 : 5;
+  const simulationRole: SimulationRole = stage === "artist" ? "artist" : "contractor";
+  const isContractorSimulation = simulationRole === "contractor";
+  const rolePanelClass = isContractorSimulation ? "border-[#3EA6FF]/35 bg-[#10243A]" : "border-[#BA3BE7]/25 bg-[#222226]";
+  const roleAccentTextClass = isContractorSimulation ? "text-[#8DCAFF]" : "text-[#D6A0FF]";
+  const primaryActionClass = isContractorSimulation ? "bg-[#1565C0] hover:bg-[#1976D2]" : "bg-[#6C1EE7] hover:bg-[#BA3BE7]";
+  const summaryClass = isContractorSimulation ? "border-[#3EA6FF]/25 bg-[#0D1B2A]" : "border-white/10 bg-[#151517]";
 
   function update<K extends keyof Draft>(key: K, value: Draft[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -319,7 +328,7 @@ export function ContractDemoFlow({ artist, isOwnProfile, simulationId }: { artis
       } else {
         addDemoReview({ artistId: artist.id, authorName: "Contratante fictício", rating: reviewRating, comment: reviewComment.trim() });
       }
-      addUserNotification(artist.id, { title: "Você recebeu uma nova avaliação", detail: `Uma contratação de demonstração avaliou seu perfil com ${reviewRating} ${reviewRating === 1 ? "estrela" : "estrelas"}.` });
+      addUserNotification(artist.id, { simulationRole: "contractor", title: "Você recebeu uma nova avaliação", detail: `Uma contratação de demonstração avaliou seu perfil com ${reviewRating} ${reviewRating === 1 ? "estrela" : "estrelas"}.` });
     } catch {
       toast("Não foi possível mostrar a avaliação simulada neste navegador.", "error");
       return;
@@ -337,6 +346,7 @@ export function ContractDemoFlow({ artist, isOwnProfile, simulationId }: { artis
     }
     addUserNotification(artist.id, {
       type: "contract-proposal",
+      simulationRole: "contractor",
       title: "Você recebeu uma proposta de contrato",
       detail: `Nova proposta para ${draft.eventTitle} em ${formatEventDate(draft.eventDate)}. Confira os detalhes para aceitar ou enviar uma contraproposta.`,
       href: createdSimulationId ? `/contratos/novo?artista=${encodeURIComponent(artist.id)}&simulacao=${encodeURIComponent(createdSimulationId)}` : undefined,
@@ -360,6 +370,7 @@ export function ContractDemoFlow({ artist, isOwnProfile, simulationId }: { artis
     }
     addUserNotification(artist.id, {
       type: "contract-accepted",
+      simulationRole: "artist",
       title: "Contrato simulado aceito",
       detail: `A proposta para ${draft.eventTitle} foi aceita pelo perfil de ${artist.name}.`,
       href: isOwnProfile ? "/notificacoes" : undefined,
@@ -379,15 +390,15 @@ export function ContractDemoFlow({ artist, isOwnProfile, simulationId }: { artis
 
   function summary() {
     const finishesNextDay = Boolean(draft.endTime && draft.startTime && draft.endTime < draft.startTime);
-    return <div className="space-y-3 rounded-2xl border border-white/10 bg-[#151517] p-4 sm:p-5">
+    return <div className={`space-y-3 rounded-2xl border p-4 sm:p-5 ${summaryClass}`}>
       <div className="flex items-center gap-3 border-b border-white/10 pb-3">
         <Image src={artist.imageUrl} alt="" width={48} height={48} unoptimized className="size-12 rounded-xl object-cover" />
         <div className="min-w-0"><p className="flex items-center gap-2 break-words font-semibold [overflow-wrap:anywhere]">{artist.name}<RankingMedal position={artist.rankingPosition} compact /></p><p className="mt-0.5 break-words text-xs text-white/50 [overflow-wrap:anywhere]">{artist.genre}</p></div>
       </div>
       <h3 className="break-words font-semibold [overflow-wrap:anywhere]">{draft.eventTitle || "Apresentação musical"}</h3>
-      <p className="flex items-start gap-2 text-sm text-white/65"><CalendarDays className="mt-0.5 size-4 shrink-0 text-[#D6A0FF]" /><span className="min-w-0 break-words [overflow-wrap:anywhere]">{formatEventDate(draft.eventDate)}</span></p>
-      <p className="flex items-start gap-2 text-sm text-white/65"><Clock3 className="mt-0.5 size-4 shrink-0 text-[#D6A0FF]" /><span className="min-w-0 break-words [overflow-wrap:anywhere]">Início {draft.startTime || "a definir"}{draft.endTime ? ` · término ${draft.endTime}${finishesNextDay ? ` (${formatEventDate(followingDate(draft.eventDate))}, dia seguinte)` : ""}` : ""} · {draft.performanceMinutes} min</span></p>
-      <p className="flex items-start gap-2 text-sm text-white/65"><MapPin className="mt-0.5 size-4 shrink-0 text-[#D6A0FF]" /><span className="min-w-0 break-words [overflow-wrap:anywhere]">{draft.venueName || "Local a definir"}{draft.venueAddress ? ` · ${draft.venueAddress}` : ""}</span></p>
+      <p className="flex items-start gap-2 text-sm text-white/65"><CalendarDays className={`mt-0.5 size-4 shrink-0 ${roleAccentTextClass}`} /><span className="min-w-0 break-words [overflow-wrap:anywhere]">{formatEventDate(draft.eventDate)}</span></p>
+      <p className="flex items-start gap-2 text-sm text-white/65"><Clock3 className={`mt-0.5 size-4 shrink-0 ${roleAccentTextClass}`} /><span className="min-w-0 break-words [overflow-wrap:anywhere]">Início {draft.startTime || "a definir"}{draft.endTime ? ` · término ${draft.endTime}${finishesNextDay ? ` (${formatEventDate(followingDate(draft.eventDate))}, dia seguinte)` : ""}` : ""} · {draft.performanceMinutes} min</span></p>
+      <p className="flex items-start gap-2 text-sm text-white/65"><MapPin className={`mt-0.5 size-4 shrink-0 ${roleAccentTextClass}`} /><span className="min-w-0 break-words [overflow-wrap:anywhere]">{draft.venueName || "Local a definir"}{draft.venueAddress ? ` · ${draft.venueAddress}` : ""}</span></p>
       <div className="grid grid-cols-2 gap-2 pt-1 text-xs text-white/55">
         <span className="min-w-0 break-words [overflow-wrap:anywhere]">Chegada: {draft.arrivalMinutes} min antes</span><span className="min-w-0 break-words [overflow-wrap:anywhere]">Tipo: {draft.venueType}</span>
         <span className="col-span-2 min-w-0 break-words font-medium text-white/75 [overflow-wrap:anywhere]">Valor proposto: {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(draft.fee))}</span>
@@ -406,21 +417,21 @@ export function ContractDemoFlow({ artist, isOwnProfile, simulationId }: { artis
   return <div className="min-h-dvh bg-[#101010] text-white">
     <header className="border-b border-white/10 bg-[#1A1A1A]/90 backdrop-blur-xl">
       <div className="relative mx-auto flex h-[calc(env(safe-area-inset-top)+72px)] max-w-[1040px] items-center justify-between px-4 pt-[env(safe-area-inset-top)] sm:px-6 lg:h-20 lg:pt-0">
-        <button type="button" onClick={goBack} className="tap-target flex items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/75 transition-all duration-200 hover:border-[#BA3BE7] hover:text-white active:scale-95" aria-label="Voltar"><ArrowLeft className="size-5" /></button>
+        <button type="button" onClick={goBack} className={`tap-target flex items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/75 transition-all duration-200 hover:text-white active:scale-95 ${isContractorSimulation ? "hover:border-[#3EA6FF]" : "hover:border-[#BA3BE7]"}`} aria-label="Voltar"><ArrowLeft className="size-5" /></button>
         <div className="absolute left-1/2 -translate-x-1/2 lg:static lg:ml-4 lg:translate-x-0"><Brand compact /></div>
-        <span className="rounded-lg border border-amber-300/20 bg-amber-300/10 px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-100">Simulação</span>
+        <span className={`rounded-lg border px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider ${isContractorSimulation ? "border-[#3EA6FF]/40 bg-[#1565C0]/20 text-[#8DCAFF]" : "border-[#BA3BE7]/35 bg-[#6C1EE7]/20 text-[#D6A0FF]"}`}>{isContractorSimulation ? "Contratante simulado" : "Visão do artista"}</span>
       </div>
     </header>
     <main className="mx-auto max-w-[760px] px-4 pb-14 pt-6 sm:px-6 sm:pt-9">
       <ol className="mb-6 grid grid-cols-6 gap-1" aria-label="Etapas da contratação fictícia">
-        {steps.map((label, index) => <li key={label} className={`border-b-2 pb-2 text-center text-[9px] font-medium sm:text-[11px] ${index <= stageIndex ? "border-[#BA3BE7] text-[#E4C9FF]" : "border-white/10 text-white/35"}`}>{label}</li>)}
+        {steps.map((label, index) => <li key={label} className={`border-b-2 pb-2 text-center text-[9px] font-medium sm:text-[11px] ${index <= stageIndex ? isContractorSimulation ? "border-[#3EA6FF] text-[#8DCAFF]" : "border-[#BA3BE7] text-[#E4C9FF]" : "border-white/10 text-white/35"}`}>{label}</li>)}
       </ol>
-      <div className="mb-5 rounded-xl border border-amber-300/20 bg-amber-300/[0.07] p-3.5 text-xs leading-relaxed text-amber-50/80">
-        <p className="flex items-start gap-2"><CircleAlert className="mt-0.5 size-4 shrink-0 text-amber-200" /><span><strong>Contrato fictício.</strong> A conta e o perfil do artista são reais e persistentes; somente esta proposta é uma simulação guardada neste navegador. Ela não cria documento jurídico, assinatura ou cobrança no Supabase.</span></p>
+      <div className={`mb-5 rounded-xl border p-3.5 text-xs leading-relaxed ${isContractorSimulation ? "border-[#3EA6FF]/35 bg-[#1565C0]/[0.12] text-[#CBE8FF]" : "border-[#BA3BE7]/30 bg-[#6C1EE7]/[0.10] text-[#E4C9FF]"}`}>
+        <p className="flex items-start gap-2"><CircleAlert className={`mt-0.5 size-4 shrink-0 ${roleAccentTextClass}`} /><span><strong>{isContractorSimulation ? "Simulação do contratante." : "Simulação da resposta do artista."}</strong> {isContractorSimulation ? "Nesta tela você representa a pessoa que está contratando o artista. " : "Nesta tela você representa o artista que recebeu a proposta. "}A conta e o perfil são reais e persistentes; somente este fluxo é fictício e não cria documento jurídico, assinatura ou cobrança.</span></p>
       </div>
 
-      {stage === "details" && <section className="rounded-2xl border border-white/10 bg-[#222226] p-5 sm:p-7">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#D6A0FF]">Etapa 1 · Detalhes do evento</p>
+      {stage === "details" && <section className={`rounded-2xl border p-5 sm:p-7 ${rolePanelClass}`}>
+        <p className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${roleAccentTextClass}`}>Etapa 1 · Detalhes do evento</p>
         <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">Criar proposta para {artist.name}</h1>
         <p className="mt-2 text-sm leading-relaxed text-white/55">Preencha as condições que gostaria de combinar para a apresentação.</p>
         <form onSubmit={submitDetails} className="mt-6 space-y-6">
@@ -434,34 +445,34 @@ export function ContractDemoFlow({ artist, isOwnProfile, simulationId }: { artis
             <Field label="Chegar quantos minutos antes?"><input type="number" min="0" max="720" required value={draft.arrivalMinutes} onChange={(event) => update("arrivalMinutes", event.target.value)} className={inputClass} /></Field>
             <div className="sm:col-span-2"><Field label="Nome do local"><input required value={draft.venueName} onChange={(event) => update("venueName", event.target.value)} maxLength={120} placeholder="Nome da casa ou do espaço" className={inputClass} /></Field></div>
             <div className="sm:col-span-2"><Field label="Endereço completo"><input required value={draft.venueAddress} onChange={(event) => update("venueAddress", event.target.value)} maxLength={240} placeholder="Rua, número, cidade e estado" className={inputClass} /></Field></div>
-            <Field label="Valor proposto"><span className="flex h-12 w-full items-center overflow-hidden rounded-xl border border-white/10 bg-[#101010]/70 transition focus-within:border-[#BA3BE7] focus-within:ring-2 focus-within:ring-[#BA3BE7]/20"><span className="pl-3.5 text-sm text-white/55">R$</span><input type="number" required min="0.01" step="0.01" value={draft.fee} onChange={(event) => update("fee", event.target.value)} placeholder="0,00" aria-label="Valor proposto em reais" className="h-full min-w-0 flex-1 bg-transparent px-2.5 text-sm text-white outline-none placeholder:text-white/30" /></span>{artist.estimatedPrice != null && <span className="mt-1.5 block text-xs text-white/40">Valor estimado do perfil: {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(artist.estimatedPrice)}{artist.acceptsDifferentProposals ? " · aceita propostas diferentes" : ""}</span>}</Field>
+            <Field label="Valor proposto"><span className="flex h-12 w-full items-center overflow-hidden rounded-xl border border-white/10 bg-[#101010]/70 transition focus-within:border-[#3EA6FF] focus-within:ring-2 focus-within:ring-[#3EA6FF]/20"><span className="pl-3.5 text-sm text-white/55">R$</span><input type="number" required min="0.01" step="0.01" value={draft.fee} onChange={(event) => update("fee", event.target.value)} placeholder="0,00" aria-label="Valor proposto em reais" className="h-full min-w-0 flex-1 bg-transparent px-2.5 text-sm text-white outline-none placeholder:text-white/30" /></span>{artist.estimatedPrice != null && <span className="mt-1.5 block text-xs text-white/40">Valor estimado do perfil: {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(artist.estimatedPrice)}{artist.acceptsDifferentProposals ? " · aceita propostas diferentes" : ""}</span>}</Field>
           </div>
           <div>
             <h2 className="mb-3 text-sm font-semibold text-white/85">Estrutura e logística</h2>
             <div className="grid gap-2 sm:grid-cols-2">
-              <CheckOption checked={draft.transportationByArtist} onChange={(value) => update("transportationByArtist", value)}>Locomoção até o evento por conta do artista</CheckOption>
-              <CheckOption checked={draft.mealProvided} onChange={(value) => update("mealProvided", value)}>Contratante fornece alimentação</CheckOption>
-              <CheckOption checked={draft.lodgingProvided} onChange={(value) => update("lodgingProvided", value)}>Contratante fornece hospedagem</CheckOption>
-              <CheckOption checked={draft.soundCheck} onChange={(value) => update("soundCheck", value)}>Incluir passagem de som antes do show</CheckOption>
-              <CheckOption checked={draft.equipmentProvided} onChange={(value) => update("equipmentProvided", value)}>Som e equipamentos básicos no local</CheckOption>
+              <CheckOption tone={simulationRole} checked={draft.transportationByArtist} onChange={(value) => update("transportationByArtist", value)}>Locomoção até o evento por conta do artista</CheckOption>
+              <CheckOption tone={simulationRole} checked={draft.mealProvided} onChange={(value) => update("mealProvided", value)}>Contratante fornece alimentação</CheckOption>
+              <CheckOption tone={simulationRole} checked={draft.lodgingProvided} onChange={(value) => update("lodgingProvided", value)}>Contratante fornece hospedagem</CheckOption>
+              <CheckOption tone={simulationRole} checked={draft.soundCheck} onChange={(value) => update("soundCheck", value)}>Incluir passagem de som antes do show</CheckOption>
+              <CheckOption tone={simulationRole} checked={draft.equipmentProvided} onChange={(value) => update("equipmentProvided", value)}>Som e equipamentos básicos no local</CheckOption>
             </div>
           </div>
           <div>
             <h2 className="mb-1 text-sm font-semibold text-white/85">Confirmações da proposta</h2>
             <p className="mb-3 text-xs text-white/50">Marque os três itens depois de revisar a data, os horários e o endereço.</p>
             <div className="grid gap-2 sm:grid-cols-3">
-              <CheckOption checked={draft.dateConfirmed} onChange={(value) => update("dateConfirmed", value)}>Data confirmada</CheckOption>
-              <CheckOption checked={draft.timeConfirmed} onChange={(value) => update("timeConfirmed", value)}>Horário confirmado</CheckOption>
-              <CheckOption checked={draft.venueConfirmed} onChange={(value) => update("venueConfirmed", value)}>Local confirmado</CheckOption>
+              <CheckOption tone={simulationRole} checked={draft.dateConfirmed} onChange={(value) => update("dateConfirmed", value)}>Data confirmada</CheckOption>
+              <CheckOption tone={simulationRole} checked={draft.timeConfirmed} onChange={(value) => update("timeConfirmed", value)}>Horário confirmado</CheckOption>
+              <CheckOption tone={simulationRole} checked={draft.venueConfirmed} onChange={(value) => update("venueConfirmed", value)}>Local confirmado</CheckOption>
             </div>
           </div>
-          <Field label="Outras condições ou observações (opcional)"><textarea value={draft.extraTerms} onChange={(event) => update("extraTerms", event.target.value)} maxLength={1200} rows={3} wrap="soft" placeholder="Detalhes adicionais para conversar com o artista" className="min-w-0 w-full resize-y break-words rounded-xl border border-white/10 bg-[#101010]/70 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20 [overflow-wrap:anywhere]" /></Field>
-          <button type="submit" className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#6C1EE7] px-5 text-sm font-semibold text-white transition hover:bg-[#BA3BE7]">Revisar contrato fictício <ArrowRight className="size-4" /></button>
+          <Field label="Outras condições ou observações (opcional)"><textarea value={draft.extraTerms} onChange={(event) => update("extraTerms", event.target.value)} maxLength={1200} rows={3} wrap="soft" placeholder="Detalhes adicionais para conversar com o artista" className="min-w-0 w-full resize-y break-words rounded-xl border border-white/10 bg-[#101010]/70 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#3EA6FF] focus:ring-2 focus:ring-[#3EA6FF]/20 [overflow-wrap:anywhere]" /></Field>
+          <button type="submit" className={`inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white transition ${primaryActionClass}`}>Revisar contrato fictício <ArrowRight className="size-4" /></button>
         </form>
       </section>}
 
-      {stage === "contract" && <section className="rounded-2xl border border-white/10 bg-[#222226] p-5 sm:p-7">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#D6A0FF]">Etapa 2 · Revisão e aceite</p>
+      {stage === "contract" && <section className={`rounded-2xl border p-5 sm:p-7 ${rolePanelClass}`}>
+        <p className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${roleAccentTextClass}`}>Etapa 2 · Revisão e aceite</p>
         <h1 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">Contrato Fictício</h1>
         <p className="mt-2 text-sm leading-relaxed text-white/55">Confira a proposta antes de simular o aceite do contratante.</p>
         <div className="mt-6">{summary()}</div>
@@ -472,73 +483,73 @@ export function ContractDemoFlow({ artist, isOwnProfile, simulationId }: { artis
           <h3 className="mb-1 mt-4 font-semibold text-white/85">Dados e privacidade nesta demonstração</h3>
           <p>As informações digitadas servem apenas para montar este resumo temporário. Não inclua dados pessoais ou sensíveis; a proposta não é enviada nem gravada no sistema.</p>
         </div>
-        <div className="mt-4"><CheckOption checked={buyerAccepted} onChange={setBuyerAccepted}>Li os detalhes e aceito continuar com esta proposta fictícia.</CheckOption></div>
-        <button type="button" disabled={!buyerAccepted} onClick={simulateProposalSend} className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#6C1EE7] px-5 text-sm font-semibold text-white transition hover:bg-[#BA3BE7] disabled:cursor-not-allowed disabled:opacity-45">Aceitar e simular envio ao artista <ArrowRight className="size-4" /></button>
+        <div className="mt-4"><CheckOption tone={simulationRole} checked={buyerAccepted} onChange={setBuyerAccepted}>Li os detalhes e aceito continuar com esta proposta fictícia.</CheckOption></div>
+        <button type="button" disabled={!buyerAccepted} onClick={simulateProposalSend} className={`mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-45 ${primaryActionClass}`}>Aceitar e simular envio ao artista <ArrowRight className="size-4" /></button>
       </section>}
 
-      {stage === "sent" && <section className="rounded-2xl border border-white/10 bg-[#222226] p-6 text-center sm:p-10">
+      {stage === "sent" && <section className={`rounded-2xl border p-6 text-center sm:p-10 ${rolePanelClass}`}>
         <span className="mx-auto flex size-16 items-center justify-center rounded-2xl border border-emerald-400/25 bg-emerald-400/10 text-emerald-200"><Check className="size-8" /></span>
         <p className="mt-5 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-200">Envio simulado</p>
         <h1 className="mt-2 text-2xl font-bold">Proposta preparada para {artist.name}</h1>
         <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-white/55">{isOwnProfile ? "A proposta já apareceu nas notificações do seu perfil. Você pode abri-la por lá ou continuar agora como artista." : "Em uma versão futura, a proposta seria encaminhada ao artista para aceite ou contraproposta. Por enquanto, você pode simular a resposta aqui."}</p>
         <div className="mx-auto mt-6 max-w-lg text-left">{summary()}</div>
-        <button type="button" onClick={() => setStage("artist")} className="mt-6 inline-flex h-12 w-full max-w-lg items-center justify-center gap-2 rounded-xl bg-[#6C1EE7] px-5 text-sm font-semibold text-white transition hover:bg-[#BA3BE7]">{isOwnProfile ? "Abrir proposta recebida" : "Simular resposta do artista"} <ArrowRight className="size-4" /></button>
+        <button type="button" onClick={() => setStage("artist")} className={`mt-6 inline-flex h-12 w-full max-w-lg items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white transition ${primaryActionClass}`}>{isOwnProfile ? "Abrir proposta recebida" : "Simular resposta do artista"} <ArrowRight className="size-4" /></button>
       </section>}
 
-      {stage === "artist" && <section className="rounded-2xl border border-white/10 bg-[#222226] p-5 sm:p-7">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#D6A0FF]">Etapa 3 · Resposta do artista</p>
+      {stage === "artist" && <section className={`rounded-2xl border p-5 sm:p-7 ${rolePanelClass}`}>
+        <p className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${roleAccentTextClass}`}>Etapa 3 · Resposta do artista</p>
         <h1 className="mt-2 text-2xl font-bold">{artist.name}, você aceita a proposta?</h1>
         <p className="mt-2 text-sm text-white/55">{isOwnProfile ? "Você está analisando a proposta recebida pelo seu próprio perfil. O aceite atualizará a simulação e gerará uma nova notificação." : "Simule o outro lado do fluxo: aceitar as condições ou pedir um ajuste."}</p>
         <div className="mt-5">{summary()}</div>
-        <div className="mt-4"><CheckOption checked={artistAccepted} onChange={setArtistAccepted}>Confirmo, como artista, que aceito os detalhes desta proposta fictícia.</CheckOption></div>
-        <button type="button" disabled={!artistAccepted} onClick={acceptContract} className="mt-3 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#6C1EE7] px-5 text-sm font-semibold text-white transition hover:bg-[#BA3BE7] disabled:cursor-not-allowed disabled:opacity-45">Aceitar contrato fictício <Check className="size-4" /></button>
+        <div className="mt-4"><CheckOption tone={simulationRole} checked={artistAccepted} onChange={setArtistAccepted}>Confirmo, como artista, que aceito os detalhes desta proposta fictícia.</CheckOption></div>
+        <button type="button" disabled={!artistAccepted} onClick={acceptContract} className={`mt-3 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-45 ${primaryActionClass}`}>Aceitar contrato fictício <Check className="size-4" /></button>
         <div className="my-5 border-t border-white/10" />
         <Field label="Ou descreva um ajuste para a proposta"><textarea value={changeRequest} onChange={(event) => setChangeRequest(event.target.value)} maxLength={800} rows={3} wrap="soft" placeholder="Ex.: preciso alterar o horário de chegada para 90 minutos antes" className="min-w-0 w-full resize-y break-words rounded-xl border border-white/10 bg-[#101010]/70 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20 [overflow-wrap:anywhere]" /></Field>
         <button type="button" disabled={!changeRequest.trim()} onClick={() => setStage("adjustment")} className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-xl border border-white/15 text-sm font-semibold text-white/80 transition hover:border-[#BA3BE7] hover:text-white disabled:cursor-not-allowed disabled:opacity-40">Solicitar ajuste</button>
       </section>}
 
-      {stage === "adjustment" && <section className="rounded-2xl border border-white/10 bg-[#222226] p-5 sm:p-7">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#D6A0FF]">Contraproposta fictícia</p>
+      {stage === "adjustment" && <section className={`rounded-2xl border p-5 sm:p-7 ${rolePanelClass}`}>
+        <p className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${roleAccentTextClass}`}>Contraproposta fictícia</p>
         <h1 className="mt-2 text-2xl font-bold">O artista sugeriu um ajuste</h1>
         <p className="mt-2 text-sm text-white/55">Em um fluxo real, o contratante poderia responder ou negociar novamente.</p>
-        <blockquote className="mt-5 min-w-0 max-w-full break-words whitespace-pre-wrap rounded-xl border-l-2 border-[#BA3BE7] bg-[#101010]/50 p-4 text-sm leading-relaxed text-white/75 [overflow-wrap:anywhere]">“{changeRequest}”</blockquote>
+        <blockquote className="mt-5 min-w-0 max-w-full break-words whitespace-pre-wrap rounded-xl border-l-2 border-[#3EA6FF] bg-[#101010]/50 p-4 text-sm leading-relaxed text-white/75 [overflow-wrap:anywhere]">“{changeRequest}”</blockquote>
         <div className="mt-5">{summary()}</div>
-        <button type="button" onClick={() => { update("extraTerms", [draft.extraTerms, `Ajuste simulado aceito: ${changeRequest}`].filter(Boolean).join("\n")); setArtistAccepted(true); setStage("escrow"); }} className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#6C1EE7] px-5 text-sm font-semibold text-white transition hover:bg-[#BA3BE7]">Simular aceite do ajuste <Check className="size-4" /></button>
+        <button type="button" onClick={() => { update("extraTerms", [draft.extraTerms, `Ajuste simulado aceito: ${changeRequest}`].filter(Boolean).join("\n")); setArtistAccepted(true); setStage("escrow"); }} className={`mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white transition ${primaryActionClass}`}>Simular aceite do ajuste <Check className="size-4" /></button>
         <button type="button" onClick={() => setStage("details")} className="mt-2 h-11 w-full rounded-xl border border-white/15 text-sm text-white/70 transition hover:bg-white/5">Voltar e alterar proposta</button>
       </section>}
 
-      {stage === "escrow" && <section className="rounded-2xl border border-white/10 bg-[#222226] p-5 sm:p-7">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#D6A0FF]">Etapa 4 · Pagamento protegido</p>
+      {stage === "escrow" && <section className={`rounded-2xl border p-5 sm:p-7 ${rolePanelClass}`}>
+        <p className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${roleAccentTextClass}`}>Etapa 4 · Pagamento protegido</p>
         <h1 className="mt-2 text-2xl font-bold">Pagamento via Fluxo escrow</h1>
         <p className="mt-2 text-sm leading-relaxed text-white/55">Depois do aceite do artista, o contratante faria o pagamento ao sistema antes do evento. Futuramente, o Fluxo escrow poderá manter o valor protegido até a conclusão do show.</p>
         <div className="mt-5">{summary()}</div>
         <div className="mt-4 rounded-xl border border-amber-300/20 bg-amber-300/[0.07] p-4 text-sm leading-relaxed text-amber-50/80"><strong>Pagamento fictício.</strong> Nenhuma cobrança será feita e nenhum valor será transferido ou retido nesta demonstração.</div>
-        <div className="mt-4"><CheckOption checked={paymentConfirmed} onChange={setPaymentConfirmed}>Confirmo o pagamento simulado de {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(draft.fee))} para continuar.</CheckOption></div>
-        <button type="button" disabled={!paymentConfirmed} onClick={() => setStage("checkin")} className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#6C1EE7] px-5 text-sm font-semibold text-white transition hover:bg-[#BA3BE7] disabled:cursor-not-allowed disabled:opacity-45">Simular pagamento protegido <ArrowRight className="size-4" /></button>
+        <div className="mt-4"><CheckOption tone={simulationRole} checked={paymentConfirmed} onChange={setPaymentConfirmed}>Confirmo o pagamento simulado de {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(draft.fee))} para continuar.</CheckOption></div>
+        <button type="button" disabled={!paymentConfirmed} onClick={() => setStage("checkin")} className={`mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-45 ${primaryActionClass}`}>Simular pagamento protegido <ArrowRight className="size-4" /></button>
       </section>}
 
-      {stage === "checkin" && <section className="rounded-2xl border border-white/10 bg-[#222226] p-5 sm:p-7">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#D6A0FF]">Etapa 5 · Dia do evento</p>
+      {stage === "checkin" && <section className={`rounded-2xl border p-5 sm:p-7 ${rolePanelClass}`}>
+        <p className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${roleAccentTextClass}`}>Etapa 5 · Dia do evento</p>
         <h1 className="mt-2 text-2xl font-bold">Check-in no show</h1>
         <p className="mt-2 text-sm leading-relaxed text-white/55">Esta tela é apenas demonstrativa. Em uma versão futura, poderia confirmar a chegada do artista no local.</p>
         <div className="mt-5">{summary()}</div>
-        <div className="mt-4"><CheckOption checked={checkinConfirmed} onChange={setCheckinConfirmed}>Confirmo o check-in fictício para continuar à avaliação.</CheckOption></div>
-        <button type="button" disabled={!checkinConfirmed} onClick={() => setStage("review")} className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#6C1EE7] px-5 text-sm font-semibold text-white transition hover:bg-[#BA3BE7] disabled:cursor-not-allowed disabled:opacity-45">Continuar para avaliação <ArrowRight className="size-4" /></button>
+        <div className="mt-4"><CheckOption tone={simulationRole} checked={checkinConfirmed} onChange={setCheckinConfirmed}>Confirmo o check-in fictício para continuar à avaliação.</CheckOption></div>
+        <button type="button" disabled={!checkinConfirmed} onClick={() => setStage("review")} className={`mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-45 ${primaryActionClass}`}>Continuar para avaliação <ArrowRight className="size-4" /></button>
       </section>}
 
-      {stage === "review" && <section className="rounded-2xl border border-white/10 bg-[#222226] p-5 sm:p-7">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#D6A0FF]">Etapa 6 · Avaliação</p>
+      {stage === "review" && <section className={`rounded-2xl border p-5 sm:p-7 ${rolePanelClass}`}>
+        <p className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${roleAccentTextClass}`}>Etapa 6 · Avaliação</p>
         <h1 className="mt-2 text-2xl font-bold">Como foi o show de {artist.name}?</h1>
         <p className="mt-2 text-sm text-white/55">A avaliação ficará visível apenas nesta simulação, neste navegador.</p>
         <div className="mt-6 flex items-center justify-center gap-2" role="radiogroup" aria-label="Nota de 1 a 5 estrelas">
           {Array.from({ length: 5 }, (_, index) => {
             const value = index + 1;
-            return <button key={value} type="button" onClick={() => setReviewRating(value)} role="radio" aria-checked={reviewRating === value} aria-label={`${value} ${value === 1 ? "estrela" : "estrelas"}`} className="rounded-lg p-1 text-amber-300 transition hover:scale-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#BA3BE7]"><Star className={`size-9 ${value <= reviewRating ? "fill-current" : "fill-transparent"}`} /></button>;
+            return <button key={value} type="button" onClick={() => setReviewRating(value)} role="radio" aria-checked={reviewRating === value} aria-label={`${value} ${value === 1 ? "estrela" : "estrelas"}`} className="rounded-lg p-1 text-amber-300 transition hover:scale-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3EA6FF]"><Star className={`size-9 ${value <= reviewRating ? "fill-current" : "fill-transparent"}`} /></button>;
           })}
         </div>
         <p className="mt-2 text-center text-sm font-semibold text-amber-100">{reviewRating} de 5 estrelas</p>
-        <div className="mt-6"><Field label="Comentário (opcional)"><textarea value={reviewComment} onChange={(event) => setReviewComment(event.target.value)} rows={4} maxLength={800} wrap="soft" placeholder="Conte o que achou da apresentação" className="min-w-0 w-full resize-y break-words rounded-xl border border-white/10 bg-[#101010]/70 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20 [overflow-wrap:anywhere]" /></Field></div>
-        <button type="button" onClick={saveDemoReview} className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#6C1EE7] px-5 text-sm font-semibold text-white transition hover:bg-[#BA3BE7]">Enviar avaliação simulada e abrir perfil <ArrowRight className="size-4" /></button>
+        <div className="mt-6"><Field label="Comentário (opcional)"><textarea value={reviewComment} onChange={(event) => setReviewComment(event.target.value)} rows={4} maxLength={800} wrap="soft" placeholder="Conte o que achou da apresentação" className="min-w-0 w-full resize-y break-words rounded-xl border border-white/10 bg-[#101010]/70 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#3EA6FF] focus:ring-2 focus:ring-[#3EA6FF]/20 [overflow-wrap:anywhere]" /></Field></div>
+        <button type="button" onClick={saveDemoReview} className={`mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white transition ${primaryActionClass}`}>Enviar avaliação simulada e abrir perfil <ArrowRight className="size-4" /></button>
       </section>}
     </main>
   </div>;

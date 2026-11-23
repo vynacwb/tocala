@@ -2,6 +2,7 @@
 import type { Metadata, Viewport } from "next";
 import { MobileSearchShortcut } from "@/components/layout/mobile-search-shortcut";
 import { MusicAtmosphere } from "@/components/layout/music-atmosphere";
+import { GlobalNotificationBell } from "@/components/layout/global-notification-bell";
 import { AppProviders } from "@/components/providers/app-providers";
 import "./globals.css";
 
@@ -33,6 +34,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <AppProviders>
           <MusicAtmosphere />
           <MobileSearchShortcut />
+          <GlobalNotificationBell />
           {children}
         </AppProviders>
       </body>

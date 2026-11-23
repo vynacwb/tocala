@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Bell, Check, CheckCircle2, FileSignature, MoreVertical } from "lucide-react";
-import { getUserNotifications, updateUserNotifications, USER_NOTIFICATIONS_CHANGE_EVENT, type UserNotification } from "@/lib/user-notifications";
+import { getUserNotifications, isContractorSimulation, updateUserNotifications, USER_NOTIFICATIONS_CHANGE_EVENT, type UserNotification } from "@/lib/user-notifications";
 
 function dateLabel(value: string) {
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
@@ -35,12 +35,13 @@ export function NotificationCenter({ profileId }: { profileId: string }) {
       {visible.length > 0 && <button type="button" onClick={() => setNotifications(updateUserNotifications(profileId, (items) => items.map((item) => ({ ...item, read: true }))))} className="tap-target inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-xs font-semibold text-[#D6A0FF] transition hover:bg-white/5 hover:text-white"><Check className="size-4" />Marcar todas como lidas</button>}
     </header>
     <div className="divide-y divide-white/[0.07]">
-      {visible.map((item) => <article key={item.id} className={`flex gap-3 px-5 py-4 sm:px-6 ${item.read ? "opacity-65" : ""}`}>
-        <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[#6C1EE7]/25 text-[#E4C9FF]">{item.type === "contract-proposal" ? <FileSignature className="size-5" /> : item.type === "contract-accepted" ? <CheckCircle2 className="size-5" /> : <Bell className="size-5" />}</span>
+      {visible.map((item) => <article key={item.id} className={`flex gap-3 border-l-[3px] px-5 py-4 sm:px-6 ${isContractorSimulation(item) ? "border-[#3EA6FF] bg-[#1565C0]/[0.09]" : "border-transparent"} ${item.read ? "opacity-65" : ""}`}>
+        <span className={`flex size-11 shrink-0 items-center justify-center rounded-full ${isContractorSimulation(item) ? "bg-[#1565C0]/25 text-[#8DCAFF]" : "bg-[#6C1EE7]/25 text-[#E4C9FF]"}`}>{item.type === "contract-proposal" ? <FileSignature className="size-5" /> : item.type === "contract-accepted" ? <CheckCircle2 className="size-5" /> : <Bell className="size-5" />}</span>
         <div className="min-w-0 flex-1">
+          {isContractorSimulation(item) && <span className="mb-1.5 inline-flex rounded-full border border-[#3EA6FF]/35 bg-[#1565C0]/20 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wider text-[#8DCAFF]">Simulação do contratante</span>}
           <p className="text-sm font-medium text-white/90">{item.title}</p>
           <p className="mt-1 text-sm leading-relaxed text-white/55">{item.detail}</p>
-          <div className="mt-2 flex flex-wrap items-center gap-3 text-xs"><span className="text-white/35">{dateLabel(item.createdAt)}</span>{item.href && <Link href={item.href} onClick={() => markRead(item.id)} className="font-semibold text-[#D6A0FF] hover:text-white">{item.actionLabel || "Abrir"}</Link>}</div>
+          <div className="mt-2 flex flex-wrap items-center gap-3 text-xs"><span className="text-white/35">{dateLabel(item.createdAt)}</span>{item.href && <Link href={item.href} onClick={() => markRead(item.id)} className={`font-semibold hover:text-white ${isContractorSimulation(item) ? "text-[#8DCAFF]" : "text-[#D6A0FF]"}`}>{item.actionLabel || "Abrir"}</Link>}</div>
         </div>
         <button type="button" onClick={() => setNotifications(updateUserNotifications(profileId, (items) => items.map((entry) => entry.id === item.id ? { ...entry, hidden: true } : entry)))} aria-label="Ocultar notificação" className="tap-target flex shrink-0 items-center justify-center rounded-full text-white/40 transition hover:bg-white/10 hover:text-white"><MoreVertical className="size-4" /></button>
       </article>)}

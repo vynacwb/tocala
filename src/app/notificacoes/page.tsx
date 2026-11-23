@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, Bell } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Brand } from "@/components/layout/brand";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { NotificationCenter } from "@/components/notifications/notification-center";
@@ -27,7 +27,7 @@ export default async function NotificationsPage() {
         <div className="relative mx-auto flex h-[calc(env(safe-area-inset-top)+76px)] max-w-[1200px] items-center justify-between px-5 pt-[env(safe-area-inset-top)] lg:h-20 lg:px-6 lg:pt-0">
           <Link href="/#explorar" className="tap-target flex items-center justify-center rounded-xl border border-white/15 bg-white/5 text-[#D6A0FF] transition-all duration-200 hover:border-[#BA3BE7] hover:bg-[#6C1EE7]/15 active:scale-95" aria-label="Voltar para a página inicial"><ArrowLeft className="size-5" /></Link>
           <div className="absolute left-1/2 -translate-x-1/2 lg:static lg:ml-5 lg:translate-x-0"><Brand compact /></div>
-          <div className="flex size-11 items-center justify-center rounded-xl border border-[#BA3BE7]/30 bg-[#6C1EE7]/15 text-[#D6A0FF]" aria-hidden="true"><Bell className="size-5" /></div>
+          <span className="size-11" aria-hidden="true" />
         </div>
       </header>
 

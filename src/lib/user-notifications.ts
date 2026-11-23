@@ -5,6 +5,7 @@ export type UserNotification = {
   type?: UserNotificationType;
   href?: string;
   actionLabel?: string;
+  simulationRole?: "contractor" | "artist";
   createdAt: string;
   read: boolean;
   hidden: boolean;
@@ -18,6 +19,10 @@ export const USER_NOTIFICATION_SOUNDS: Record<UserNotificationType, string> = {
   "contract-proposal": "/sounds/universfield-positive-notification-351299.mp3",
   "contract-accepted": "/sounds/universfield-positive-notification-351299.mp3",
 };
+
+export function isContractorSimulation(notification: UserNotification) {
+  return notification.simulationRole === "contractor" || notification.type === "contract-proposal";
+}
 
 export function playUserNotificationSound(type: UserNotificationType = "general") {
   if (typeof Audio === "undefined") return;
@@ -46,7 +51,7 @@ function save(profileId: string, notifications: UserNotification[]) {
   window.dispatchEvent(new Event(USER_NOTIFICATIONS_CHANGE_EVENT));
 }
 
-export function addUserNotification(profileId: string, notification: Pick<UserNotification, "title" | "detail" | "href" | "actionLabel"> & { type?: UserNotificationType }) {
+export function addUserNotification(profileId: string, notification: Pick<UserNotification, "title" | "detail" | "href" | "actionLabel" | "simulationRole"> & { type?: UserNotificationType }) {
   if (typeof window === "undefined" || !profileId) return;
   const items = getUserNotifications(profileId);
   const type = notification.type ?? "general";

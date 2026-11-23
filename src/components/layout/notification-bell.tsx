@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Bell, Check, CheckCircle2, FileSignature, MoreVertical, Settings } from "lucide-react";
-import { getUserNotifications, updateUserNotifications, USER_NOTIFICATIONS_CHANGE_EVENT, type UserNotification } from "@/lib/user-notifications";
+import { getUserNotifications, isContractorSimulation, updateUserNotifications, USER_NOTIFICATIONS_CHANGE_EVENT, type UserNotification } from "@/lib/user-notifications";
 
 function relativeTime(value: string) {
   const minutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60000));
@@ -15,7 +15,7 @@ function relativeTime(value: string) {
   return `há ${days} dia${days === 1 ? "" : "s"}`;
 }
 
-export function NotificationBell({ profileId, variant = "desktop" }: { profileId: string; variant?: "desktop" | "mobile" }) {
+export function NotificationBell({ profileId, variant = "desktop" }: { profileId: string; variant?: "desktop" | "mobile" | "global" }) {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -43,14 +43,18 @@ export function NotificationBell({ profileId, variant = "desktop" }: { profileId
     return () => { document.removeEventListener("mousedown", closeOutside); document.removeEventListener("keydown", closeEscape); };
   }, []);
 
-  const panelPosition = variant === "desktop"
-    ? "fixed right-4 top-[76px] sm:right-8"
-    : "fixed bottom-[calc(76px+env(safe-area-inset-bottom)+12px)] left-1/2 -translate-x-1/2";
+  const panelPosition = variant === "global"
+    ? "fixed right-3 top-[calc(env(safe-area-inset-top)+148px)] sm:right-5 lg:top-40"
+    : variant === "desktop"
+      ? "fixed right-4 top-[76px] sm:right-8"
+      : "fixed bottom-[calc(76px+env(safe-area-inset-bottom)+12px)] left-1/2 -translate-x-1/2";
 
-  return <div ref={rootRef} className={variant === "desktop" ? "relative" : "contents"}>
+  return <div ref={rootRef} className={variant === "global" ? "fixed right-3 top-[calc(env(safe-area-inset-top)+88px)] z-[80] sm:right-5 lg:top-24" : variant === "desktop" ? "relative" : "contents"}>
     <button type="button" aria-label={`Notificações${unreadCount ? `, ${unreadCount} não lidas` : ""}`} aria-expanded={open} aria-controls={`notifications-panel-${variant}`} onClick={() => setOpen((value) => !value)} className={variant === "desktop"
       ? "tap-target relative flex size-11 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white/70 transition-all duration-200 hover:border-[#BA3BE7] hover:bg-[#6C1EE7]/15 hover:text-[#D6A0FF] active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7]"
-      : "tap-target relative mx-auto flex size-12 flex-col items-center justify-center gap-0.5 rounded-xl text-white/65 transition-all duration-200 hover:bg-white/5 hover:text-[#D6A0FF] active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#BA3BE7]"}>
+      : variant === "global"
+        ? "tap-target relative flex size-12 items-center justify-center rounded-full border border-[#BA3BE7]/35 bg-[#21182C]/95 text-[#D6A0FF] shadow-xl shadow-black/35 backdrop-blur-xl transition-all duration-200 hover:border-[#BA3BE7] hover:bg-[#6C1EE7]/25 hover:text-white active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7]"
+        : "tap-target relative mx-auto flex size-12 flex-col items-center justify-center gap-0.5 rounded-xl text-white/65 transition-all duration-200 hover:bg-white/5 hover:text-[#D6A0FF] active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#BA3BE7]"}>
       <Bell className={variant === "desktop" ? "size-5" : "size-5"} strokeWidth={1.8} />
       {variant === "mobile" && <span className="text-[9px] leading-none">Notificações</span>}
       {unreadCount > 0 && <span className="absolute right-1 top-1 size-2 rounded-full bg-[#BA3BE7] ring-2 ring-[#1A1A1A]" aria-hidden="true" />}
@@ -66,12 +70,12 @@ export function NotificationBell({ profileId, variant = "desktop" }: { profileId
       </header>
       <div className="overlay-scroll min-h-0 overflow-y-auto">
         <p className="px-4 pb-2 pt-3 text-xs font-semibold text-white/45 sm:px-5">Recentes</p>
-        {visibleNotifications.map((item) => <article key={item.id} className={`group flex gap-3 px-4 py-3 transition hover:bg-white/[0.035] sm:px-5 ${item.read ? "opacity-65" : ""}`}>
-          <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[#6C1EE7]/25 text-[#E4C9FF]">{item.type === "contract-proposal" ? <FileSignature className="size-5" /> : item.type === "contract-accepted" ? <CheckCircle2 className="size-5" /> : <Bell className="size-5" />}</span>
+        {visibleNotifications.map((item) => <article key={item.id} className={`group flex gap-3 border-l-2 px-4 py-3 transition sm:px-5 ${isContractorSimulation(item) ? "border-[#3EA6FF] bg-[#1565C0]/[0.08] hover:bg-[#1565C0]/[0.13]" : "border-transparent hover:bg-white/[0.035]"} ${item.read ? "opacity-65" : ""}`}>
+          <span className={`flex size-11 shrink-0 items-center justify-center rounded-full ${isContractorSimulation(item) ? "bg-[#1565C0]/25 text-[#8DCAFF]" : "bg-[#6C1EE7]/25 text-[#E4C9FF]"}`}>{item.type === "contract-proposal" ? <FileSignature className="size-5" /> : item.type === "contract-accepted" ? <CheckCircle2 className="size-5" /> : <Bell className="size-5" />}</span>
           {item.href ? <Link href={item.href} onClick={() => { setNotifications(updateUserNotifications(profileId, (items) => items.map((entry) => entry.id === item.id ? { ...entry, read: true } : entry))); setOpen(false); }} className="min-h-11 min-w-0 flex-1 rounded-lg text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7]">
-            <p className="text-sm leading-snug text-white/90">{item.title}</p><p className="mt-1 text-xs leading-relaxed text-white/55">{item.detail}</p><p className="mt-1.5 text-[11px] text-white/40">{relativeTime(item.createdAt)}{item.actionLabel ? ` · ${item.actionLabel}` : ""}</p>
+            {isContractorSimulation(item) && <span className="mb-1 inline-flex rounded-full border border-[#3EA6FF]/35 bg-[#1565C0]/20 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-[#8DCAFF]">Simulação do contratante</span>}<p className="text-sm leading-snug text-white/90">{item.title}</p><p className="mt-1 text-xs leading-relaxed text-white/55">{item.detail}</p><p className="mt-1.5 text-[11px] text-white/40">{relativeTime(item.createdAt)}{item.actionLabel ? ` · ${item.actionLabel}` : ""}</p>
           </Link> : <button type="button" onClick={() => setNotifications(updateUserNotifications(profileId, (items) => items.map((entry) => entry.id === item.id ? { ...entry, read: true } : entry)))} className="min-h-11 min-w-0 flex-1 rounded-lg text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7]">
-            <p className="text-sm leading-snug text-white/90">{item.title}</p><p className="mt-1 text-xs leading-relaxed text-white/55">{item.detail}</p><p className="mt-1.5 text-[11px] text-white/40">{relativeTime(item.createdAt)}</p>
+            {isContractorSimulation(item) && <span className="mb-1 inline-flex rounded-full border border-[#3EA6FF]/35 bg-[#1565C0]/20 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-[#8DCAFF]">Simulação do contratante</span>}<p className="text-sm leading-snug text-white/90">{item.title}</p><p className="mt-1 text-xs leading-relaxed text-white/55">{item.detail}</p><p className="mt-1.5 text-[11px] text-white/40">{relativeTime(item.createdAt)}</p>
           </button>}
           <div className="flex shrink-0 flex-col items-center gap-1"><button type="button" onClick={() => setNotifications(updateUserNotifications(profileId, (items) => items.map((entry) => entry.id === item.id ? { ...entry, hidden: true } : entry)))} aria-label="Ocultar notificação" className="tap-target flex items-center justify-center rounded-full text-white/45 opacity-100 transition-all duration-200 hover:bg-white/10 hover:text-white active:scale-95 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"><MoreVertical className="size-4" /></button>{!item.read && <span className="size-2 rounded-full bg-[#3EA6FF]" aria-label="Não lida" />}</div>
         </article>)}
