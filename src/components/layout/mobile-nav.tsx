@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { CircleDollarSign, House, Trophy, UserRound } from "lucide-react";
+import { CircleDollarSign, FileText, House, Trophy, UserRound } from "lucide-react";
 import { readStoredDemoReviews, removeStoredDemoReviews } from "@/lib/demo-reviews";
 import { createClient } from "@/utils/supabase/client";
 import { isSupabaseConfigured } from "@/utils/supabase/config";
@@ -18,6 +18,7 @@ export function MobileNav() {
   const isHomeActive = pathname === "/";
   const isProfileActive = pathname.startsWith("/perfil");
   const isFinanceActive = pathname === "/financeiro";
+  const isContractsActive = pathname === "/contratos" || pathname.startsWith("/contratos/");
 
   useEffect(() => {
     if (!configured) return;
@@ -51,13 +52,16 @@ export function MobileNav() {
 
   return (
     <nav aria-label="Navegação mobile" className="fixed bottom-0 left-1/2 z-50 w-full max-w-[400px] -translate-x-1/2 border-t-2 border-[#6C1EE7] bg-[#202020]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden">
-      <div className={`grid h-[76px] ${account ? "grid-cols-4" : "grid-cols-3"} items-center px-1`}>
+      <div className={`grid h-[76px] ${account ? "grid-cols-5" : "grid-cols-3"} items-center px-1`}>
         <Link href="/#explorar" aria-label="Página inicial" aria-current={isHomeActive ? "page" : undefined} className={`mx-auto flex size-12 flex-col items-center justify-center gap-0.5 rounded-xl transition-all duration-200 active:scale-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#BA3BE7] ${isHomeActive ? "bg-[#6C1EE7]/25 text-[#D6A0FF] shadow-inner shadow-[#BA3BE7]/15" : "text-white/65 hover:bg-white/5 hover:text-[#D6A0FF]"}`}>
           <House className="size-5" strokeWidth={isHomeActive ? 2.3 : 1.8} /><span className="text-[9px] leading-none">Home</span>
         </Link>
         <Link href="/ranking" aria-label="Ranking" aria-current={pathname === "/ranking" ? "page" : undefined} className={`mx-auto flex size-12 flex-col items-center justify-center gap-0.5 rounded-xl transition-all duration-200 active:scale-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#BA3BE7] ${pathname === "/ranking" ? "bg-[#6C1EE7]/25 text-[#D6A0FF] shadow-inner shadow-[#BA3BE7]/15" : "text-white/65 hover:bg-white/5 hover:text-[#D6A0FF]"}`}>
           <Trophy className="size-5" strokeWidth={pathname === "/ranking" ? 2.3 : 1.8} /><span className="text-[9px] leading-none">Ranking</span>
         </Link>
+        {account && <Link href="/contratos" aria-label="Meus contratos" aria-current={isContractsActive ? "page" : undefined} className={`mx-auto flex size-12 flex-col items-center justify-center gap-0.5 rounded-xl transition-all duration-200 active:scale-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#BA3BE7] ${isContractsActive ? "bg-[#6C1EE7]/25 text-[#D6A0FF] shadow-inner shadow-[#BA3BE7]/15" : "text-white/65 hover:bg-white/5 hover:text-[#D6A0FF]"}`}>
+          <FileText className="size-5" strokeWidth={isContractsActive ? 2.3 : 1.8} /><span className="text-[9px] leading-none">Contratos</span>
+        </Link>}
         {account && <Link href="/financeiro" aria-label="Financeiro" aria-current={isFinanceActive ? "page" : undefined} className={`mx-auto flex size-12 flex-col items-center justify-center gap-0.5 rounded-xl transition-all duration-200 active:scale-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#BA3BE7] ${isFinanceActive ? "bg-[#6C1EE7]/25 text-[#D6A0FF] shadow-inner shadow-[#BA3BE7]/15" : "text-white/65 hover:bg-white/5 hover:text-[#D6A0FF]"}`}>
           <CircleDollarSign className="size-5" strokeWidth={isFinanceActive ? 2.3 : 1.8} /><span className="text-[9px] leading-none">Financeiro</span>
         </Link>}

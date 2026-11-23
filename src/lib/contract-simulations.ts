@@ -32,6 +32,8 @@ export type ContractSimulationReview = {
 export type StoredContractSimulation = {
   id: string;
   artistId: string;
+  artistName?: string;
+  artistGenre?: string;
   contractorId: string;
   draft: ContractDraft;
   status: ContractSimulationStatus;
@@ -45,8 +47,11 @@ export type StoredContractSimulation = {
   artistReview?: ContractSimulationReview;
 };
 
+const CONTRACT_STORAGE_PREFIX = "tocala:contract-simulation:";
+export const CONTRACT_SIMULATIONS_CHANGE_EVENT = "tocala:contract-simulations-change";
+
 function contractStorageKey(id: string) {
-  return `tocala:contract-simulation:${encodeURIComponent(id)}`;
+  return `${CONTRACT_STORAGE_PREFIX}${encodeURIComponent(id)}`;
 }
 
 function isDraft(value: unknown): value is ContractDraft {
@@ -85,4 +90,22 @@ export function readContractSimulation(id: string): StoredContractSimulation | n
 export function saveContractSimulation(simulation: StoredContractSimulation) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(contractStorageKey(simulation.id), JSON.stringify(simulation));
+  window.dispatchEvent(new Event(CONTRACT_SIMULATIONS_CHANGE_EVENT));
+}
+
+export function listContractSimulations(profileId?: string) {
+  if (typeof window === "undefined") return [];
+  const simulations: StoredContractSimulation[] = [];
+  for (let index = 0; index < window.localStorage.length; index += 1) {
+    const key = window.localStorage.key(index);
+    if (!key?.startsWith(CONTRACT_STORAGE_PREFIX)) continue;
+    const encodedId = key.slice(CONTRACT_STORAGE_PREFIX.length);
+    let id = encodedId;
+    try { id = decodeURIComponent(encodedId); } catch { /* Keep the stored key as a fallback. */ }
+    const simulation = readContractSimulation(id);
+    if (!simulation) continue;
+    if (profileId && simulation.artistId !== profileId && simulation.contractorId !== profileId) continue;
+    simulations.push(simulation);
+  }
+  return simulations.sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
 }

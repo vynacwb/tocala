@@ -41,7 +41,7 @@ export async function Navbar() {
 
         <nav className="hidden items-center gap-9 text-sm font-medium text-white/70 lg:flex" aria-label="Navegação principal">
           <Link href="/#explorar" className="transition hover:text-[#D6A0FF]">Explorar</Link>
-          <Link href="/#destaques" className="transition hover:text-[#D6A0FF]">Como Funciona</Link>
+          <Link href="/contratos" className="transition hover:text-[#D6A0FF]">Meus contratos</Link>
           <DesktopComingSoon showFinance={Boolean(account)} />
         </nav>
 

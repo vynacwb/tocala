@@ -329,6 +329,8 @@ export function ContractDemoFlow({ artist, isOwnProfile, simulationId, requested
     const simulation: StoredContractSimulation = {
       id: createdSimulationId,
       artistId: artist.id,
+      artistName: artist.name,
+      artistGenre: artist.genre,
       contractorId: viewerId ?? artist.id,
       draft,
       status: "pending_artist",
