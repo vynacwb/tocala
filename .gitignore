@@ -1,12 +1,82 @@
+# Dependências e caches de gerenciadores de pacotes
 node_modules/
 .pnpm-store/
+.npm/
+.yarn/cache/
+.yarn/unplugged/
+
+# Builds e caches de frameworks
 .next/
 out/
+dist/
+build/
+.turbo/
+.cache/
+*.tsbuildinfo
+
+# Variáveis de ambiente e configurações locais
 .env*
 !.env.example
-*.tsbuildinfo
+*.local
+.vercel/
+
+# Supabase local (migrations e templates permanecem versionados)
+supabase/.branches/
+supabase/.temp/
+.supabase/
+
+# Credenciais, certificados privados e bancos locais
+secrets/
+credentials/
+client_secret*.json
+credentials*.json
+service-account*.json
+service_account*.json
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+*.backup
+*.sql.gz
+
+# Logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.DS_Store
+pnpm-debug.log*
+
+# Testes e cobertura
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+cypress/screenshots/
+cypress/videos/
+
+# Arquivos temporários e artefatos gerados
+tmp/
+temp/
+output/
+
+# Arquivos locais e exportações que não pertencem ao produto
 senha forte/
+chat lara.txt
+chat vini.txt
+RELATORIO_COMPLETO_PROJETO.md
+
+# Editores e sistema operacional
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+Desktop.ini

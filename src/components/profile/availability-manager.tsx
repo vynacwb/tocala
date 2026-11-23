@@ -105,7 +105,7 @@ export function AvailabilityManager({ configured, initialWeekdays, initialStatus
       <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
         {BOOKING_WEEKDAYS.map((day) => {
           const selected = weekdays.includes(day.value);
-          return <button key={day.value} type="button" onClick={() => toggleWeekday(day.value)} aria-pressed={selected} className={`flex items-center gap-2.5 rounded-xl border px-3 py-3 text-left text-sm transition ${selected ? "border-[#BA3BE7]/50 bg-[#6C1EE7]/20 text-white" : "border-white/10 bg-[#101010]/40 text-white/55 hover:border-white/20"}`}>
+          return <button key={day.value} type="button" onClick={() => toggleWeekday(day.value)} aria-pressed={selected} className={`tap-target flex items-center gap-2.5 rounded-xl border px-3 py-3 text-left text-sm transition-all duration-200 active:scale-[0.98] ${selected ? "border-[#BA3BE7]/50 bg-[#6C1EE7]/20 text-white" : "border-white/10 bg-[#101010]/40 text-white/55 hover:border-white/20"}`}>
             <span className={`flex size-5 items-center justify-center rounded-md border ${selected ? "border-[#BA3BE7] bg-[#6C1EE7] text-white" : "border-white/25 text-transparent"}`}><Check className="size-3.5" /></span>{day.label}
           </button>;
         })}
@@ -119,7 +119,7 @@ export function AvailabilityManager({ configured, initialWeekdays, initialStatus
       </div>
 
       <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
-        {statusOptions.map((option) => <button key={option.value} type="button" onClick={() => setMode(option.value)} aria-pressed={mode === option.value} className={`rounded-xl border px-3 py-2.5 text-xs font-semibold transition sm:text-sm ${mode === option.value ? option.className : "border-white/10 bg-[#101010]/40 text-white/55 hover:border-white/20"}`}>
+        {statusOptions.map((option) => <button key={option.value} type="button" onClick={() => setMode(option.value)} aria-pressed={mode === option.value} className={`tap-target rounded-xl border px-3 text-xs font-semibold transition-all duration-200 active:scale-[0.98] sm:text-sm ${mode === option.value ? option.className : "border-white/10 bg-[#101010]/40 text-white/55 hover:border-white/20"}`}>
           {option.label}
         </button>)}
       </div>
@@ -135,7 +135,7 @@ export function AvailabilityManager({ configured, initialWeekdays, initialStatus
 
     <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
       <p className="text-xs text-white/40">{changedCount > 0 ? "Há alterações que ainda não foram salvas." : "Sua disponibilidade está atualizada."}</p>
-      <button type="button" onClick={saveAvailability} disabled={saving || changedCount === 0} className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#6C1EE7] px-5 text-sm font-semibold text-white transition hover:bg-[#BA3BE7] disabled:cursor-not-allowed disabled:opacity-50">
+      <button type="button" onClick={saveAvailability} disabled={saving || changedCount === 0} className="tap-target inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#6C1EE7] px-5 text-sm font-semibold text-white transition-all duration-200 hover:bg-[#BA3BE7] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100">
         {saving ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />}{saving ? "Salvando..." : "Salvar disponibilidade"}
       </button>
     </div>

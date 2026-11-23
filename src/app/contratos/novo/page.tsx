@@ -2,38 +2,49 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ContractDemoFlow } from "@/components/contracts/contract-demo-flow";
 import { featuredArtists } from "@/lib/artists";
+import { DEMO_REVIEWS } from "@/lib/demo-reviews";
+import { rankArtists } from "@/lib/artist-ranking";
+import { getArtistRankingPosition } from "@/lib/artist-ranking.server";
 import { isSupabaseConfigured } from "@/utils/supabase/config";
 import { createClient } from "@/utils/supabase/server";
 
 export const metadata: Metadata = { title: "Criar contrato fictício" };
 export const dynamic = "force-dynamic";
 
-export default async function NewContractPage({ searchParams }: { searchParams: Promise<{ artista?: string }> }) {
-  const { artista: artistId } = await searchParams;
+export default async function NewContractPage({ searchParams }: { searchParams: Promise<{ artista?: string; simulacao?: string }> }) {
+  const { artista: artistId, simulacao } = await searchParams;
   if (!artistId) notFound();
 
-  let artist: { id: string; name: string; genre: string; imageUrl: string };
+  let artist: { id: string; name: string; genre: string; imageUrl: string; rankingPosition?: number; estimatedPrice?: number | null; acceptsDifferentProposals?: boolean };
+  let isOwnProfile = false;
   if (isSupabaseConfigured()) {
     if (!/^[0-9a-f-]{36}$/i.test(artistId)) notFound();
     const supabase = await createClient();
-    const { data } = await supabase.from("profiles")
-      .select("id, real_name, stage_name, full_name, username, genre, avatar_url, profile_visible, status, account_type")
+    const { data: { user } } = await supabase.auth.getUser();
+    isOwnProfile = user?.id === artistId;
+    let profileQuery = supabase.from("profiles")
+      .select("id, real_name, stage_name, full_name, username, genre, avatar_url, profile_visible, status, account_type, estimated_price, accepts_different_proposals")
       .eq("id", artistId)
-      .eq("account_type", "MUSICO")
-      .eq("profile_visible", true)
-      .eq("status", "ATIVO")
-      .maybeSingle();
+      .eq("account_type", "MUSICO");
+    if (!isOwnProfile) profileQuery = profileQuery.eq("profile_visible", true).eq("status", "ATIVO");
+    const { data } = await profileQuery.maybeSingle();
     if (!data) notFound();
     artist = {
       id: data.id,
       name: data.stage_name || data.real_name || data.full_name || data.username,
       genre: data.genre || "Artista",
       imageUrl: data.avatar_url || featuredArtists[0].imageUrl,
+      rankingPosition: await getArtistRankingPosition(artistId),
+      estimatedPrice: data.estimated_price == null ? null : Number(data.estimated_price),
+      acceptsDifferentProposals: data.accepts_different_proposals ?? false,
     };
   } else {
     const sample = featuredArtists.find((item) => item.id === artistId) ?? featuredArtists[0];
-    artist = { id: sample.id, name: sample.name, genre: sample.genre, imageUrl: sample.imageUrl };
+    const rankingPosition = rankArtists(featuredArtists, [], DEMO_REVIEWS.map((review) => ({ artistId: review.artistId, rating: review.rating }))).find((item) => item.id === sample.id)?.rankingPosition;
+    artist = { id: sample.id, name: sample.name, genre: sample.genre, imageUrl: sample.imageUrl, rankingPosition, estimatedPrice: sample.estimatedPrice, acceptsDifferentProposals: sample.acceptsDifferentProposals };
+    isOwnProfile = artistId === sample.id;
   }
 
-  return <ContractDemoFlow artist={artist} />;
+  const simulationId = simulacao && /^[a-zA-Z0-9-]{1,100}$/.test(simulacao) ? simulacao : undefined;
+  return <ContractDemoFlow artist={artist} isOwnProfile={isOwnProfile} simulationId={simulationId} />;
 }

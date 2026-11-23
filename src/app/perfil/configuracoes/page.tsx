@@ -15,7 +15,10 @@ export const dynamic = "force-dynamic";
 const demoData: ProfileSettingsData = {
   realName: "Marina Oliveira", fullName: "Marina Luz", username: "marinaluz",
   contactEmail: "contato@marinaluz.com", contactPhone: "+55 11 99999-1234",
-  city: "São Paulo", state: "SP", genre: "MPB",
+  estimatedPrice: "850", priceUnit: "show", acceptsDifferentProposals: true,
+  profileVisible: true,
+  city: "São Paulo", state: "SP", genre: "MPB", genres: ["MPB"],
+  instruments: ["Voz", "Cavaquinho", "Pandeiro"],
   bio: "Cantora e compositora movida por encontros, histórias e pela força da música brasileira.",
   avatarUrl: "https://images.unsplash.com/photo-1643370857818-d3705b0a1ec1?auto=format&fit=crop&w=600&q=85",
   avatarPositionX: 50, avatarPositionY: 50,
@@ -31,9 +34,10 @@ async function getSettingsData(): Promise<{ data: ProfileSettingsData; configure
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login?redirectTo=/perfil/configuracoes");
-  const [{ data: profile }, { data: musician }] = await Promise.all([
-    supabase.from("profiles").select("real_name, stage_name, full_name, username, contact_email, contact_phone, city, state, genre, bio, career, avatar_url, avatar_position_x, avatar_position_y").eq("id", user.id).maybeSingle(),
+  const [{ data: profile }, { data: musician }, { data: priceData }] = await Promise.all([
+    supabase.from("profiles").select("real_name, stage_name, full_name, username, contact_email, contact_phone, city, state, genre, genres, instruments, bio, career, avatar_url, avatar_position_x, avatar_position_y, profile_visible").eq("id", user.id).maybeSingle(),
     supabase.from("musician_profiles").select("portfolio_links").eq("user_id", user.id).maybeSingle(),
+    supabase.from("profiles").select("estimated_price, price_unit, accepts_different_proposals").eq("id", user.id).maybeSingle(),
   ]);
   const fallbackUsername = emailUsername(user.email);
   const generatedSuffix = `-${user.id.slice(0, 6)}`;
@@ -44,8 +48,12 @@ async function getSettingsData(): Promise<{ data: ProfileSettingsData; configure
     realName: profile?.real_name || user.user_metadata.full_name || "",
     fullName: profile?.stage_name || "", username,
     contactEmail: profile?.contact_email || "", contactPhone: profile?.contact_phone || "",
+    estimatedPrice: priceData?.estimated_price == null ? "" : String(priceData.estimated_price),
+    priceUnit: priceData?.price_unit === "hourly" ? "hourly" : "show",
+    acceptsDifferentProposals: priceData?.accepts_different_proposals ?? false,
+    profileVisible: profile?.profile_visible ?? false,
     city: profile?.city || "", state: profile?.state || "",
-    genre: profile?.genre || "", bio: profile?.bio || "", avatarUrl: profile?.avatar_url || "",
+    genre: profile?.genre || "", genres: Array.isArray(profile?.genres) && profile.genres.length > 0 ? profile.genres as string[] : (profile?.genre || "").split(/[·,]/).map((item: string) => item.trim()).filter(Boolean), instruments: Array.isArray(profile?.instruments) ? profile.instruments : [], bio: profile?.bio || "", avatarUrl: profile?.avatar_url || "",
     avatarPositionX: profile?.avatar_position_x ?? 50, avatarPositionY: profile?.avatar_position_y ?? 50,
     experiences: parseCareer(profile?.career || "", portfolioLinks),
   } };
@@ -56,7 +64,7 @@ export default async function ProfileSettingsPage() {
   return <div className="min-h-dvh bg-[#101010]">
     <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[#1A1A1A]/95 backdrop-blur-xl">
       <div className="relative mx-auto flex h-[calc(env(safe-area-inset-top)+76px)] max-w-[1200px] items-center justify-between px-5 pt-[env(safe-area-inset-top)] lg:h-20 lg:px-6 lg:pt-0">
-        <Link href="/perfil" className="flex size-10 items-center justify-center rounded-xl border border-white/15 bg-white/5 text-[#D6A0FF] transition hover:border-[#BA3BE7] hover:bg-[#6C1EE7]/15" aria-label="Voltar para o perfil"><ArrowLeft className="size-5" /></Link>
+        <Link href="/perfil" className="tap-target flex items-center justify-center rounded-xl border border-white/15 bg-white/5 text-[#D6A0FF] transition-all duration-200 hover:border-[#BA3BE7] hover:bg-[#6C1EE7]/15 active:scale-95" aria-label="Voltar para o perfil"><ArrowLeft className="size-5" /></Link>
         <div className="absolute left-1/2 -translate-x-1/2"><Brand compact /></div>
         <div className="flex size-10 items-center justify-center rounded-xl border border-[#BA3BE7]/30 bg-[#6C1EE7]/15 text-[#D6A0FF]" aria-hidden="true"><UserRound className="size-5" /></div>
       </div>

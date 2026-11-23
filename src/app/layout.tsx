@@ -1,5 +1,7 @@
 /* eslint-disable @next/next/no-page-custom-font */
 import type { Metadata, Viewport } from "next";
+import { MobileSearchShortcut } from "@/components/layout/mobile-search-shortcut";
+import { MusicAtmosphere } from "@/components/layout/music-atmosphere";
 import { AppProviders } from "@/components/providers/app-providers";
 import "./globals.css";
 
@@ -28,7 +30,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
       </head>
       <body className="antialiased">
-        <AppProviders>{children}</AppProviders>
+        <AppProviders>
+          <MusicAtmosphere />
+          <MobileSearchShortcut />
+          {children}
+        </AppProviders>
       </body>
     </html>
   );

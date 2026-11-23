@@ -28,18 +28,18 @@ export async function updateSession(request: NextRequest) {
   const isAuthRoute = request.nextUrl.pathname.startsWith("/login");
 
   if (isProtectedRoute && !user) {
+    const requestedDestination = `${request.nextUrl.pathname}${request.nextUrl.search}`;
     const url = request.nextUrl.clone();
     url.pathname = "/login";
-    url.searchParams.set("redirectTo", request.nextUrl.pathname);
+    url.search = "";
+    url.searchParams.set("redirectTo", requestedDestination);
     return NextResponse.redirect(url);
   }
 
   if (isAuthRoute && user) {
-    const url = request.nextUrl.clone();
     const requestedDestination = request.nextUrl.searchParams.get("redirectTo");
-    url.pathname = requestedDestination?.startsWith("/") && !requestedDestination.startsWith("//") ? requestedDestination : "/";
-    url.search = "";
-    return NextResponse.redirect(url);
+    const destination = requestedDestination?.startsWith("/") && !requestedDestination.startsWith("//") ? requestedDestination : "/";
+    return NextResponse.redirect(new URL(destination, request.url));
   }
 
   return response;

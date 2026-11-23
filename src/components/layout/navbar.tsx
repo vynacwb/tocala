@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { Bell } from "lucide-react";
 import { Brand } from "./brand";
+import { NotificationBell } from "./notification-bell";
 import { AccountMenu } from "./account-menu";
 import { DesktopComingSoon } from "./desktop-coming-soon";
 import { isSupabaseConfigured } from "@/utils/supabase/config";
@@ -8,14 +8,16 @@ import { createClient } from "@/utils/supabase/server";
 
 export async function Navbar() {
   const configured = isSupabaseConfigured();
-  let account: { avatarUrl: string | null; avatarPositionX: number; avatarPositionY: number } | null = null;
+  let account: { profileId: string; username: string; avatarUrl: string | null; avatarPositionX: number; avatarPositionY: number } | null = null;
 
   if (configured) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      const { data } = await supabase.from("profiles").select("avatar_url, avatar_position_x, avatar_position_y").eq("id", user.id).maybeSingle();
+      const { data } = await supabase.from("profiles").select("username, avatar_url, avatar_position_x, avatar_position_y").eq("id", user.id).maybeSingle();
       account = {
+        profileId: user.id,
+        username: data?.username || user.email?.split("@")[0] || "artista",
         avatarUrl: data?.avatar_url ?? null,
         avatarPositionX: data?.avatar_position_x ?? 50,
         avatarPositionY: data?.avatar_position_y ?? 50,
@@ -29,14 +31,14 @@ export async function Navbar() {
         <div className="flex items-center justify-between">
           <Brand href="/#explorar" />
           {!account && <div className="ml-auto flex items-center gap-2 lg:hidden">
-            <Link href="/login" className="inline-flex h-9 items-center justify-center rounded-lg border border-white/20 px-3 text-xs font-semibold text-white/85 transition hover:border-[#BA3BE7] hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7]">Login</Link>
-            <Link href="/login?modo=cadastro" className="inline-flex h-9 items-center justify-center rounded-lg bg-[#6C1EE7] px-3 text-xs font-semibold text-white transition hover:bg-[#BA3BE7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7]">Register</Link>
+            <Link href="/login" className="tap-target inline-flex h-11 items-center justify-center rounded-xl border border-white/20 px-3 text-xs font-semibold text-white/85 transition-all duration-200 hover:border-[#BA3BE7] hover:bg-white/5 hover:text-white active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7]">Login</Link>
+            <Link href="/login?modo=cadastro" className="tap-target inline-flex h-11 items-center justify-center rounded-xl bg-[#6C1EE7] px-3 text-xs font-semibold text-white transition-all duration-200 hover:bg-[#BA3BE7] active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7]">Register</Link>
           </div>}
         </div>
 
         <div className="mt-4 lg:hidden">
           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#BA3BE7]">Bem-vindo ao TocaLá</p>
-          <p className="mt-1 text-xl font-semibold tracking-[-0.035em]">Olá, artista <span aria-hidden="true">✦</span></p>
+          <p className="mt-1 text-xl font-semibold tracking-[-0.035em]">Olá, <span className="text-[#D6A0FF]">{account?.username ?? "visitante"}</span> <span aria-hidden="true">✦</span></p>
         </div>
 
         <nav className="hidden items-center gap-9 text-sm font-medium text-white/70 lg:flex" aria-label="Navegação principal">
@@ -47,10 +49,10 @@ export async function Navbar() {
 
         <div className="hidden items-center gap-4 lg:flex">
           {!account && <>
-            <Link href="/login" className="inline-flex h-9 items-center justify-center rounded-lg border border-white/20 px-3 text-xs font-semibold text-white/85 transition hover:border-[#BA3BE7] hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7] lg:h-10 lg:px-4 lg:text-sm">Login</Link>
-            <Link href="/login?modo=cadastro" className="inline-flex h-9 items-center justify-center rounded-lg bg-[#6C1EE7] px-3 text-xs font-semibold text-white transition hover:bg-[#BA3BE7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7] lg:h-10 lg:px-4 lg:text-sm">Register</Link>
+            <Link href="/login" className="tap-target inline-flex h-11 items-center justify-center rounded-xl border border-white/20 px-3 text-xs font-semibold text-white/85 transition-all duration-200 hover:border-[#BA3BE7] hover:bg-white/5 hover:text-white active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7] lg:px-4 lg:text-sm">Login</Link>
+            <Link href="/login?modo=cadastro" className="tap-target inline-flex h-11 items-center justify-center rounded-xl bg-[#6C1EE7] px-3 text-xs font-semibold text-white transition-all duration-200 hover:bg-[#BA3BE7] active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7] lg:px-4 lg:text-sm">Register</Link>
           </>}
-          {account && <Link href="/notificacoes" className="flex size-11 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white/70 transition hover:border-[#BA3BE7] hover:bg-[#6C1EE7]/15 hover:text-[#D6A0FF]" aria-label="Notificações"><Bell className="size-5" strokeWidth={1.8} /></Link>}
+          {account && <NotificationBell profileId={account.profileId} variant="desktop" />}
           {account && <div className="hidden lg:block"><AccountMenu account={account} configured={configured} /></div>}
         </div>
       </div>

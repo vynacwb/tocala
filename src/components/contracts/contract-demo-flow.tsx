@@ -1,14 +1,19 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { addDemoReview, readStoredDemoReviews, removeStoredDemoReviews } from "@/lib/demo-reviews";
+import { addUserNotification } from "@/lib/user-notifications";
+import { isSupabaseConfigured } from "@/utils/supabase/config";
+import { createClient } from "@/utils/supabase/client";
 import Image from "next/image";
 import { ArrowLeft, ArrowRight, CalendarDays, Check, CircleAlert, Clock3, MapPin, Star } from "lucide-react";
 import { Brand } from "@/components/layout/brand";
 import { useToast } from "@/components/providers/app-providers";
 import { dateKey } from "@/lib/availability";
+import { RankingMedal } from "@/components/ranking/ranking-medal";
 
-type Artist = { id: string; name: string; genre: string; imageUrl: string };
+type Artist = { id: string; name: string; genre: string; imageUrl: string; rankingPosition?: number; estimatedPrice?: number | null; acceptsDifferentProposals?: boolean };
 type Stage = "details" | "contract" | "sent" | "artist" | "adjustment" | "escrow" | "checkin" | "review";
 type Draft = {
   eventTitle: string; eventDate: string; startTime: string; endTime: string; venueName: string; venueAddress: string; venueType: string;
@@ -16,16 +21,50 @@ type Draft = {
   lodgingProvided: boolean; soundCheck: boolean; equipmentProvided: boolean; dateConfirmed: boolean; timeConfirmed: boolean;
   venueConfirmed: boolean; extraTerms: string;
 };
+type StoredContractSimulation = {
+  id: string;
+  artistId: string;
+  draft: Draft;
+  status: "pending" | "accepted";
+  createdAt: string;
+  acceptedAt?: string;
+};
 
 const steps = ["Proposta", "Aceite", "Artista", "Pagamento", "Check-in", "Avaliação"];
-const inputClass = "h-12 w-full rounded-xl border border-white/10 bg-[#101010]/70 px-3.5 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20";
+const inputClass = "h-12 w-full rounded-xl border border-white/10 bg-[#101010]/70 px-3.5 text-base text-white outline-none transition-all duration-200 placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20 sm:text-sm";
 
-function initialDraft(): Draft {
+function initialDraft(estimatedPrice?: number | null): Draft {
   return {
     eventTitle: "", eventDate: "", startTime: "", endTime: "", venueName: "", venueAddress: "", venueType: "Espaço de eventos",
-    performanceMinutes: "90", arrivalMinutes: "60", fee: "", transportationByArtist: false, mealProvided: false,
+    performanceMinutes: "90", arrivalMinutes: "60", fee: estimatedPrice == null ? "" : String(estimatedPrice), transportationByArtist: false, mealProvided: false,
     lodgingProvided: false, soundCheck: true, equipmentProvided: true, dateConfirmed: false, timeConfirmed: false, venueConfirmed: false, extraTerms: "",
   };
+}
+
+function contractStorageKey(id: string) {
+  return `tocala:contract-simulation:${encodeURIComponent(id)}`;
+}
+
+function isDraft(value: unknown): value is Draft {
+  if (!value || typeof value !== "object") return false;
+  const draft = value as Record<string, unknown>;
+  return typeof draft.eventTitle === "string" && typeof draft.eventDate === "string" && typeof draft.startTime === "string" && typeof draft.fee === "string";
+}
+
+function readContractSimulation(id: string): StoredContractSimulation | null {
+  try {
+    const parsed: unknown = JSON.parse(window.localStorage.getItem(contractStorageKey(id)) || "null");
+    if (!parsed || typeof parsed !== "object") return null;
+    const simulation = parsed as Record<string, unknown>;
+    if (simulation.id !== id || typeof simulation.artistId !== "string" || (simulation.status !== "pending" && simulation.status !== "accepted") || !isDraft(simulation.draft)) return null;
+    return parsed as StoredContractSimulation;
+  } catch {
+    return null;
+  }
+}
+
+function saveContractSimulation(simulation: StoredContractSimulation) {
+  window.localStorage.setItem(contractStorageKey(simulation.id), JSON.stringify(simulation));
 }
 
 function formatEventDate(value: string) {
@@ -70,7 +109,7 @@ function DateField({ value, onChange, min }: { value: string; onChange: (value: 
     {mode === "calendar" ? <input type="date" required min={min} value={value} onChange={(event) => onChange(event.target.value)} onClick={(event) => event.currentTarget.showPicker?.()} aria-label="Dia do evento" className={`${inputClass} cursor-pointer`} /> : <input type="text" required inputMode="numeric" autoComplete="off" maxLength={10} pattern="[0-9]{2}/[0-9]{2}/[0-9]{4}" placeholder="DD/MM/AAAA" value={typedDate} onChange={(event) => updateTypedDate(event.target.value)} aria-label="Dia do evento no formato dia, mês e ano" className={inputClass} />}
     {mode === "typing" && <p className="mt-1.5 text-xs text-white/40">Digite a data como dia/mês/ano.</p>}
     <div className="mt-2">
-      <button type="button" onClick={() => { if (mode === "calendar") { setTypedDate(toBrazilianDate(value)); setMode("typing"); } else setMode("calendar"); }} aria-pressed={mode === "typing"} className="rounded-lg px-3 py-2 text-xs font-medium text-white/60 transition hover:bg-white/5 hover:text-white">{mode === "calendar" ? "Digitar data" : "Usar calendário"}</button>
+      <button type="button" onClick={() => { if (mode === "calendar") { setTypedDate(toBrazilianDate(value)); setMode("typing"); } else setMode("calendar"); }} aria-pressed={mode === "typing"} className="tap-target rounded-xl px-3 text-xs font-medium text-white/60 transition-all duration-200 hover:bg-white/5 hover:text-white">{mode === "calendar" ? "Digitar data" : "Usar calendário"}</button>
     </div>
   </div>;
 }
@@ -118,6 +157,15 @@ function TimeField({ label, value, onChange, required = false }: { label: string
     setSelecting("hour");
   }
 
+  function chooseMinuteFromDial(event: React.MouseEvent<HTMLDivElement>) {
+    if (selecting !== "minute") return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const deltaX = event.clientX - (bounds.left + bounds.width / 2);
+    const deltaY = event.clientY - (bounds.top + bounds.height / 2);
+    const degrees = (Math.atan2(deltaY, deltaX) * 180 / Math.PI + 450) % 360;
+    chooseMinute(Math.round(degrees / 6) % 60);
+  }
+
   function openClock() {
     if (value) {
       setSelectedHour(Number(value.slice(0, 2)));
@@ -132,6 +180,8 @@ function TimeField({ label, value, onChange, required = false }: { label: string
     const angle = (index * 30 - 90) * (Math.PI / 180);
     return { left: `calc(50% + ${Math.round(Math.cos(angle) * radius)}px)`, top: `calc(50% + ${Math.round(Math.sin(angle) * radius)}px)` };
   };
+  const handAngle = selecting === "hour" ? (selectedHour % 12) * 30 : selectedMinute * 6;
+  const handLength = selecting === "hour" && selectedHour >= 12 ? 58 : 98;
 
   return <div>
     <span className="mb-2 block text-sm font-medium text-white/80">{label}</span>
@@ -139,19 +189,27 @@ function TimeField({ label, value, onChange, required = false }: { label: string
       <input type="text" readOnly={mode === "clock"} required={required} pattern={mode === "typing" ? "(?:[01][0-9]|2[0-3]):[0-5][0-9]" : undefined} value={mode === "clock" ? value : typedTime} onChange={(event) => updateTypedTime(event.target.value)} onBlur={mode === "typing" ? completeTypedHour : undefined} onClick={mode === "clock" ? openClock : undefined} placeholder="HH:MM" inputMode={mode === "typing" ? "numeric" : undefined} aria-label={label} aria-expanded={mode === "clock" ? clockOpen : undefined} className={`${inputClass} ${mode === "clock" ? "cursor-pointer" : ""}`} />
     </div>
     <div className="mt-2 flex items-center gap-2">
-      <button type="button" onClick={() => { if (mode === "clock") { setMode("typing"); setClockOpen(false); setTypedTime(value); } else { setMode("clock"); setSelectedHour(value ? Number(value.slice(0, 2)) : 19); setSelectedMinute(0); } }} aria-pressed={mode === "typing"} className="rounded-lg px-3 py-2 text-xs font-medium text-white/60 transition hover:bg-white/5 hover:text-white">{mode === "clock" ? "Digitar horário" : "Usar relógio"}</button>
+      <button type="button" onClick={() => { if (mode === "clock") { setMode("typing"); setClockOpen(false); setTypedTime(value); } else { setMode("clock"); setSelectedHour(value ? Number(value.slice(0, 2)) : 19); setSelectedMinute(0); } }} aria-pressed={mode === "typing"} className="tap-target rounded-xl px-3 text-xs font-medium text-white/60 transition-all duration-200 hover:bg-white/5 hover:text-white">{mode === "clock" ? "Digitar horário" : "Usar relógio"}</button>
       {mode === "typing" && <span className="self-center text-xs text-white/40">Digite 19 para completar 19:00.</span>}
     </div>
-    {clockOpen && mode === "clock" && <div className="relative z-20 mt-2 w-full max-w-[320px] rounded-2xl border border-white/10 bg-[#1A1A1D] p-4 shadow-2xl">
-      <div className="mb-3 flex items-center justify-between">
-        <div><p className="text-xs text-white/50">Escolha {selecting === "hour" ? "a hora" : "os minutos"}</p><p className="text-lg font-semibold tabular-nums">{String(selectedHour).padStart(2, "0")}:{String(selectedMinute).padStart(2, "0")}</p></div>
-        <button type="button" onClick={() => setClockOpen(false)} className="rounded-lg px-3 py-2 text-xs text-white/60 hover:bg-white/5">Fechar</button>
+    {clockOpen && mode === "clock" && <div className="relative z-20 mt-2 w-full max-w-[360px] overflow-hidden rounded-2xl border border-white/10 bg-[#1A1A1D] p-3 shadow-2xl sm:p-5">
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs text-white/50">{selecting === "hour" ? "Escolha a hora" : "Escolha os minutos"}</p>
+          <div className="mt-2 flex items-center gap-1.5 font-semibold tabular-nums">
+            <button type="button" onClick={() => setSelecting("hour")} aria-label="Selecionar hora" aria-pressed={selecting === "hour"} className={`tap-target rounded-lg px-2.5 text-2xl transition-all duration-200 ${selecting === "hour" ? "bg-[#6C1EE7] text-white ring-2 ring-[#BA3BE7]/60" : "bg-white/[0.06] text-white/70 hover:bg-white/10"}`}>{String(selectedHour).padStart(2, "0")}</button>
+            <span className="text-2xl text-white/60">:</span>
+            <button type="button" onClick={() => setSelecting("minute")} aria-label="Selecionar minutos" aria-pressed={selecting === "minute"} className={`tap-target rounded-lg px-2.5 text-2xl transition-all duration-200 ${selecting === "minute" ? "bg-[#6C1EE7] text-white ring-2 ring-[#BA3BE7]/60" : "bg-white/[0.06] text-white/70 hover:bg-white/10"}`}>{String(selectedMinute).padStart(2, "0")}</button>
+          </div>
+        </div>
+        <button type="button" onClick={() => setClockOpen(false)} className="tap-target rounded-xl px-3 text-xs font-medium text-white/60 transition-all duration-200 hover:bg-white/5 hover:text-white">Fechar</button>
       </div>
-      <div className="relative mx-auto size-[248px] rounded-full bg-[#29292D]">
-        {selecting === "hour" ? <>{Array.from({ length: 12 }, (_, index) => <button key={`outer-${index}`} type="button" onClick={() => chooseHour(index)} style={dialPosition(index, 98)} className={`absolute flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-xs transition ${selectedHour === index ? "bg-[#6C1EE7] text-white" : "text-white/80 hover:bg-white/10"}`}>{String(index).padStart(2, "0")}</button>)}{Array.from({ length: 12 }, (_, index) => { const hour = index + 12; return <button key={`inner-${hour}`} type="button" onClick={() => chooseHour(hour)} style={dialPosition(index, 58)} className={`absolute flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-xs transition ${selectedHour === hour ? "bg-[#6C1EE7] text-white" : "text-white/65 hover:bg-white/10"}`}>{hour}</button>; })}</> : Array.from({ length: 12 }, (_, index) => { const minute = index * 5; return <button key={`minute-${minute}`} type="button" onClick={() => chooseMinute(minute)} style={dialPosition(index, 98)} className={`absolute flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-xs transition ${selectedMinute === minute ? "bg-[#6C1EE7] text-white" : "text-white/80 hover:bg-white/10"}`}>{String(minute).padStart(2, "0")}</button>; })}
-        <span className="absolute left-1/2 top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#BA3BE7]" />
+      <div onClick={chooseMinuteFromDial} className={`relative mx-auto size-[248px] touch-manipulation rounded-full bg-[#29292D] sm:size-[280px] ${selecting === "minute" ? "cursor-crosshair" : ""}`} aria-label={selecting === "hour" ? "Mostrador de horas: números externos de 0 a 11 e internos de 12 a 23" : "Mostrador de minutos: toque para escolher minutos exatos"}>
+        {selecting === "hour" ? <>{Array.from({ length: 12 }, (_, index) => <button key={`outer-${index}`} type="button" onClick={() => chooseHour(index)} style={dialPosition(index, 98)} className={`absolute z-10 flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-xs transition-all duration-200 before:absolute before:-inset-1.5 before:content-[''] sm:size-9 ${selectedHour === index ? "bg-[#6C1EE7] text-white ring-2 ring-[#D6A0FF]/60" : "text-white/85 hover:bg-white/10"}`}>{index}</button>)}{Array.from({ length: 12 }, (_, index) => { const hour = index + 12; return <button key={`inner-${hour}`} type="button" onClick={() => chooseHour(hour)} style={dialPosition(index, 58)} className={`absolute z-10 flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-xs transition-all duration-200 before:absolute before:-inset-1.5 before:content-[''] sm:size-9 ${selectedHour === hour ? "bg-[#6C1EE7] text-white ring-2 ring-[#D6A0FF]/60" : "text-white/70 hover:bg-white/10"}`}>{hour}</button>; })}</> : Array.from({ length: 12 }, (_, index) => { const minute = index * 5; return <button key={`minute-${minute}`} type="button" onClick={(event) => { event.stopPropagation(); chooseMinute(minute); }} style={dialPosition(index, 98)} aria-label={`${String(minute).padStart(2, "0")} minutos`} className={`absolute z-10 flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-xs transition-all duration-200 before:absolute before:-inset-1.5 before:content-[''] sm:size-9 ${selectedMinute === minute ? "bg-[#6C1EE7] text-white ring-2 ring-[#D6A0FF]/60" : "text-white/85 hover:bg-white/10"}`}>{String(minute).padStart(2, "0")}</button>; })}
+        <span aria-hidden="true" className="absolute z-[1] w-0.5 rounded-full bg-[#BA3BE7]" style={{ left: "calc(50% - 1px)", top: `calc(50% - ${handLength}px)`, height: `${handLength}px`, transform: `rotate(${handAngle}deg)`, transformOrigin: "50% 100%" }} />
+        <span className="absolute left-1/2 top-1/2 z-[2] size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#BA3BE7] shadow-[0_0_10px_#BA3BE7]" />
       </div>
-      {selecting === "minute" && <button type="button" onClick={() => setSelecting("hour")} className="mt-3 w-full rounded-lg py-2 text-xs text-[#D6A0FF] hover:bg-white/5">Voltar para as horas</button>}
+      {selecting === "minute" && <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-white/45"><button type="button" onClick={() => setSelecting("hour")} className="tap-target rounded-lg px-2 text-[#D6A0FF] transition-colors duration-200 hover:bg-white/5">Voltar para a hora</button><span className="min-w-0 flex-1 text-right">Toque no mostrador para escolher o minuto exato</span></div>}
     </div>}
   </div>;
 }
@@ -168,9 +226,10 @@ function CheckOption({ checked, onChange, children }: { checked: boolean; onChan
   </label>;
 }
 
-export function ContractDemoFlow({ artist }: { artist: Artist }) {
+export function ContractDemoFlow({ artist, isOwnProfile, simulationId }: { artist: Artist; isOwnProfile: boolean; simulationId?: string }) {
   const [stage, setStage] = useState<Stage>("details");
-  const [draft, setDraft] = useState<Draft>(initialDraft);
+  const [draft, setDraft] = useState<Draft>(() => initialDraft(artist.estimatedPrice));
+  const [activeSimulationId, setActiveSimulationId] = useState<string | null>(simulationId ?? null);
   const [buyerAccepted, setBuyerAccepted] = useState(false);
   const [artistAccepted, setArtistAccepted] = useState(false);
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
@@ -180,6 +239,22 @@ export function ContractDemoFlow({ artist }: { artist: Artist }) {
   const [reviewComment, setReviewComment] = useState("");
   const { toast } = useToast();
   const router = useRouter();
+
+  useEffect(() => {
+    if (!simulationId || !isOwnProfile) return;
+    const timeout = window.setTimeout(() => {
+      const stored = readContractSimulation(simulationId);
+      if (!stored || stored.artistId !== artist.id) {
+        toast("Esta proposta simulada não foi encontrada neste navegador.", "error");
+        return;
+      }
+      setDraft(stored.draft);
+      setActiveSimulationId(stored.id);
+      setArtistAccepted(stored.status === "accepted");
+      setStage(stored.status === "accepted" ? "escrow" : "artist");
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, [artist.id, isOwnProfile, simulationId, toast]);
 
   const stageIndex = stage === "details" ? 0 : stage === "contract" ? 1 : stage === "sent" || stage === "artist" || stage === "adjustment" ? 2 : stage === "escrow" ? 3 : stage === "checkin" ? 4 : 5;
 
@@ -214,17 +289,86 @@ export function ContractDemoFlow({ artist }: { artist: Artist }) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function saveDemoReview() {
+  async function saveDemoReview() {
     try {
-      sessionStorage.setItem("tocala-demo-contract-review", JSON.stringify({ artistId: artist.id, rating: reviewRating, comment: reviewComment.trim() }));
+      if (isSupabaseConfigured()) {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          toast("Entre na sua conta para compartilhar a avaliação com os outros participantes.", "error");
+          return;
+        }
+        if (user.id === artist.id) {
+          toast("Você não pode enviar uma avaliação para o próprio perfil.", "error");
+          return;
+        }
+        const oldReviews = readStoredDemoReviews().filter((review) => review.artistId === artist.id && /^[0-9a-f-]{36}$/i.test(review.artistId));
+        const submissions = [
+          ...oldReviews.map((review) => ({ source_id: review.id, artist_id: review.artistId, author_id: user.id, author_name: review.authorName, body: review.comment, rating: review.rating })),
+          { source_id: `contract-${crypto.randomUUID()}`, artist_id: artist.id, author_id: user.id, author_name: "Contratante fictício", body: reviewComment.trim(), rating: reviewRating },
+        ];
+        const { error } = await supabase.from("demo_reviews").upsert(submissions, { onConflict: "source_id", ignoreDuplicates: true });
+        if (error) {
+          console.error("Falha ao salvar avaliação fictícia no Supabase:", { code: error.code, message: error.message, details: error.details, hint: error.hint });
+          toast(error.code === "42501"
+            ? "O Supabase bloqueou a avaliação. Confira se o perfil do artista está público e se você não está avaliando a própria conta."
+            : "Não foi possível compartilhar a avaliação. Execute demo_reviews_migration.sql no SQL Editor do Supabase e tente novamente.", "error");
+          return;
+        }
+        removeStoredDemoReviews(oldReviews.map((review) => review.id));
+      } else {
+        addDemoReview({ artistId: artist.id, authorName: "Contratante fictício", rating: reviewRating, comment: reviewComment.trim() });
+      }
+      addUserNotification(artist.id, { title: "Você recebeu uma nova avaliação", detail: `Uma contratação de demonstração avaliou seu perfil com ${reviewRating} ${reviewRating === 1 ? "estrela" : "estrelas"}.` });
     } catch {
       toast("Não foi possível mostrar a avaliação simulada neste navegador.", "error");
       return;
     }
-    router.push(`/perfil?artista=${encodeURIComponent(artist.id)}&avaliacaoDemo=1`);
+    router.push(`/perfil?artista=${encodeURIComponent(artist.id)}`);
   }
 
   const canGoBack = stage !== "details";
+  function simulateProposalSend() {
+    let createdSimulationId: string | null = null;
+    if (isOwnProfile) {
+      createdSimulationId = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      saveContractSimulation({ id: createdSimulationId, artistId: artist.id, draft, status: "pending", createdAt: new Date().toISOString() });
+      setActiveSimulationId(createdSimulationId);
+    }
+    addUserNotification(artist.id, {
+      type: "contract-proposal",
+      title: "Você recebeu uma proposta de contrato",
+      detail: `Nova proposta para ${draft.eventTitle} em ${formatEventDate(draft.eventDate)}. Confira os detalhes para aceitar ou enviar uma contraproposta.`,
+      href: createdSimulationId ? `/contratos/novo?artista=${encodeURIComponent(artist.id)}&simulacao=${encodeURIComponent(createdSimulationId)}` : undefined,
+      actionLabel: createdSimulationId ? "Analisar proposta" : undefined,
+    });
+    setStage("sent");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function acceptContract() {
+    if (isOwnProfile && activeSimulationId) {
+      const stored = readContractSimulation(activeSimulationId);
+      saveContractSimulation({
+        id: activeSimulationId,
+        artistId: artist.id,
+        draft,
+        status: "accepted",
+        createdAt: stored?.createdAt ?? new Date().toISOString(),
+        acceptedAt: new Date().toISOString(),
+      });
+    }
+    addUserNotification(artist.id, {
+      type: "contract-accepted",
+      title: "Contrato simulado aceito",
+      detail: `A proposta para ${draft.eventTitle} foi aceita pelo perfil de ${artist.name}.`,
+      href: isOwnProfile ? "/notificacoes" : undefined,
+      actionLabel: isOwnProfile ? "Ver notificações" : undefined,
+    });
+    setStage("escrow");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   function goBack() {
     const previous: Record<Exclude<Stage, "details">, Stage> = {
       contract: "details", sent: "contract", artist: "sent", adjustment: "artist", escrow: "artist", checkin: "escrow", review: "checkin",
@@ -238,31 +382,31 @@ export function ContractDemoFlow({ artist }: { artist: Artist }) {
     return <div className="space-y-3 rounded-2xl border border-white/10 bg-[#151517] p-4 sm:p-5">
       <div className="flex items-center gap-3 border-b border-white/10 pb-3">
         <Image src={artist.imageUrl} alt="" width={48} height={48} unoptimized className="size-12 rounded-xl object-cover" />
-        <div><p className="font-semibold">{artist.name}</p><p className="mt-0.5 text-xs text-white/50">{artist.genre}</p></div>
+        <div className="min-w-0"><p className="flex items-center gap-2 break-words font-semibold [overflow-wrap:anywhere]">{artist.name}<RankingMedal position={artist.rankingPosition} compact /></p><p className="mt-0.5 break-words text-xs text-white/50 [overflow-wrap:anywhere]">{artist.genre}</p></div>
       </div>
-      <h3 className="font-semibold">{draft.eventTitle || "Apresentação musical"}</h3>
-      <p className="flex items-start gap-2 text-sm text-white/65"><CalendarDays className="mt-0.5 size-4 shrink-0 text-[#D6A0FF]" />{formatEventDate(draft.eventDate)}</p>
-      <p className="flex items-start gap-2 text-sm text-white/65"><Clock3 className="mt-0.5 size-4 shrink-0 text-[#D6A0FF]" />Início {draft.startTime || "a definir"}{draft.endTime ? ` · término ${draft.endTime}${finishesNextDay ? ` (${formatEventDate(followingDate(draft.eventDate))}, dia seguinte)` : ""}` : ""} · {draft.performanceMinutes} min</p>
-      <p className="flex items-start gap-2 text-sm text-white/65"><MapPin className="mt-0.5 size-4 shrink-0 text-[#D6A0FF]" />{draft.venueName || "Local a definir"}{draft.venueAddress ? ` · ${draft.venueAddress}` : ""}</p>
+      <h3 className="break-words font-semibold [overflow-wrap:anywhere]">{draft.eventTitle || "Apresentação musical"}</h3>
+      <p className="flex items-start gap-2 text-sm text-white/65"><CalendarDays className="mt-0.5 size-4 shrink-0 text-[#D6A0FF]" /><span className="min-w-0 break-words [overflow-wrap:anywhere]">{formatEventDate(draft.eventDate)}</span></p>
+      <p className="flex items-start gap-2 text-sm text-white/65"><Clock3 className="mt-0.5 size-4 shrink-0 text-[#D6A0FF]" /><span className="min-w-0 break-words [overflow-wrap:anywhere]">Início {draft.startTime || "a definir"}{draft.endTime ? ` · término ${draft.endTime}${finishesNextDay ? ` (${formatEventDate(followingDate(draft.eventDate))}, dia seguinte)` : ""}` : ""} · {draft.performanceMinutes} min</span></p>
+      <p className="flex items-start gap-2 text-sm text-white/65"><MapPin className="mt-0.5 size-4 shrink-0 text-[#D6A0FF]" /><span className="min-w-0 break-words [overflow-wrap:anywhere]">{draft.venueName || "Local a definir"}{draft.venueAddress ? ` · ${draft.venueAddress}` : ""}</span></p>
       <div className="grid grid-cols-2 gap-2 pt-1 text-xs text-white/55">
-        <span>Chegada: {draft.arrivalMinutes} min antes</span><span>Tipo: {draft.venueType}</span>
-        <span className="font-medium text-white/75">Valor proposto: {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(draft.fee))}</span>
+        <span className="min-w-0 break-words [overflow-wrap:anywhere]">Chegada: {draft.arrivalMinutes} min antes</span><span className="min-w-0 break-words [overflow-wrap:anywhere]">Tipo: {draft.venueType}</span>
+        <span className="col-span-2 min-w-0 break-words font-medium text-white/75 [overflow-wrap:anywhere]">Valor proposto: {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(draft.fee))}</span>
       </div>
-      <ul className="space-y-1 border-t border-white/10 pt-3 text-xs text-white/55">
+      <ul className="space-y-1 border-t border-white/10 pt-3 text-xs text-white/55 [&>li]:break-words [&>li]:[overflow-wrap:anywhere]">
         <li>Locomoção por conta do artista: {draft.transportationByArtist ? "Sim" : "Não"}</li>
         <li>Alimentação fornecida: {draft.mealProvided ? "Sim" : "Não"}</li>
         <li>Hospedagem fornecida: {draft.lodgingProvided ? "Sim" : "Não"}</li>
         <li>Passagem de som: {draft.soundCheck ? "Sim" : "Não"}</li>
         <li>Equipamento de som no local: {draft.equipmentProvided ? "Sim" : "Não"}</li>
       </ul>
-      {draft.extraTerms && <p className="border-t border-white/10 pt-3 text-xs leading-relaxed text-white/55">Outras informações: {draft.extraTerms}</p>}
+      {draft.extraTerms && <p className="min-w-0 break-words border-t border-white/10 pt-3 text-xs leading-relaxed text-white/55 [overflow-wrap:anywhere]">Outras informações: {draft.extraTerms}</p>}
     </div>;
   }
 
   return <div className="min-h-dvh bg-[#101010] text-white">
     <header className="border-b border-white/10 bg-[#1A1A1A]/90 backdrop-blur-xl">
       <div className="relative mx-auto flex h-[calc(env(safe-area-inset-top)+72px)] max-w-[1040px] items-center justify-between px-4 pt-[env(safe-area-inset-top)] sm:px-6 lg:h-20 lg:pt-0">
-        <button type="button" onClick={goBack} className="flex size-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/75 transition hover:border-[#BA3BE7] hover:text-white" aria-label="Voltar"><ArrowLeft className="size-5" /></button>
+        <button type="button" onClick={goBack} className="tap-target flex items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/75 transition-all duration-200 hover:border-[#BA3BE7] hover:text-white active:scale-95" aria-label="Voltar"><ArrowLeft className="size-5" /></button>
         <div className="absolute left-1/2 -translate-x-1/2 lg:static lg:ml-4 lg:translate-x-0"><Brand compact /></div>
         <span className="rounded-lg border border-amber-300/20 bg-amber-300/10 px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-100">Simulação</span>
       </div>
@@ -272,7 +416,7 @@ export function ContractDemoFlow({ artist }: { artist: Artist }) {
         {steps.map((label, index) => <li key={label} className={`border-b-2 pb-2 text-center text-[9px] font-medium sm:text-[11px] ${index <= stageIndex ? "border-[#BA3BE7] text-[#E4C9FF]" : "border-white/10 text-white/35"}`}>{label}</li>)}
       </ol>
       <div className="mb-5 rounded-xl border border-amber-300/20 bg-amber-300/[0.07] p-3.5 text-xs leading-relaxed text-amber-50/80">
-        <p className="flex items-start gap-2"><CircleAlert className="mt-0.5 size-4 shrink-0 text-amber-200" /><span><strong>Contrato Fictício.</strong> Esta demonstração não envia propostas, não coleta assinatura eletrônica e não salva contratos no Supabase.</span></p>
+        <p className="flex items-start gap-2"><CircleAlert className="mt-0.5 size-4 shrink-0 text-amber-200" /><span><strong>Contrato fictício.</strong> A conta e o perfil do artista são reais e persistentes; somente esta proposta é uma simulação guardada neste navegador. Ela não cria documento jurídico, assinatura ou cobrança no Supabase.</span></p>
       </div>
 
       {stage === "details" && <section className="rounded-2xl border border-white/10 bg-[#222226] p-5 sm:p-7">
@@ -290,7 +434,7 @@ export function ContractDemoFlow({ artist }: { artist: Artist }) {
             <Field label="Chegar quantos minutos antes?"><input type="number" min="0" max="720" required value={draft.arrivalMinutes} onChange={(event) => update("arrivalMinutes", event.target.value)} className={inputClass} /></Field>
             <div className="sm:col-span-2"><Field label="Nome do local"><input required value={draft.venueName} onChange={(event) => update("venueName", event.target.value)} maxLength={120} placeholder="Nome da casa ou do espaço" className={inputClass} /></Field></div>
             <div className="sm:col-span-2"><Field label="Endereço completo"><input required value={draft.venueAddress} onChange={(event) => update("venueAddress", event.target.value)} maxLength={240} placeholder="Rua, número, cidade e estado" className={inputClass} /></Field></div>
-            <Field label="Valor proposto"><span className="flex h-12 w-full items-center overflow-hidden rounded-xl border border-white/10 bg-[#101010]/70 transition focus-within:border-[#BA3BE7] focus-within:ring-2 focus-within:ring-[#BA3BE7]/20"><span className="pl-3.5 text-sm text-white/55">R$</span><input type="number" required min="0.01" step="0.01" value={draft.fee} onChange={(event) => update("fee", event.target.value)} placeholder="0,00" aria-label="Valor proposto em reais" className="h-full min-w-0 flex-1 bg-transparent px-2.5 text-sm text-white outline-none placeholder:text-white/30" /></span></Field>
+            <Field label="Valor proposto"><span className="flex h-12 w-full items-center overflow-hidden rounded-xl border border-white/10 bg-[#101010]/70 transition focus-within:border-[#BA3BE7] focus-within:ring-2 focus-within:ring-[#BA3BE7]/20"><span className="pl-3.5 text-sm text-white/55">R$</span><input type="number" required min="0.01" step="0.01" value={draft.fee} onChange={(event) => update("fee", event.target.value)} placeholder="0,00" aria-label="Valor proposto em reais" className="h-full min-w-0 flex-1 bg-transparent px-2.5 text-sm text-white outline-none placeholder:text-white/30" /></span>{artist.estimatedPrice != null && <span className="mt-1.5 block text-xs text-white/40">Valor estimado do perfil: {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(artist.estimatedPrice)}{artist.acceptsDifferentProposals ? " · aceita propostas diferentes" : ""}</span>}</Field>
           </div>
           <div>
             <h2 className="mb-3 text-sm font-semibold text-white/85">Estrutura e logística</h2>
@@ -311,7 +455,7 @@ export function ContractDemoFlow({ artist }: { artist: Artist }) {
               <CheckOption checked={draft.venueConfirmed} onChange={(value) => update("venueConfirmed", value)}>Local confirmado</CheckOption>
             </div>
           </div>
-          <Field label="Outras condições ou observações (opcional)"><textarea value={draft.extraTerms} onChange={(event) => update("extraTerms", event.target.value)} maxLength={1200} rows={3} placeholder="Detalhes adicionais para conversar com o artista" className="w-full resize-y rounded-xl border border-white/10 bg-[#101010]/70 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20" /></Field>
+          <Field label="Outras condições ou observações (opcional)"><textarea value={draft.extraTerms} onChange={(event) => update("extraTerms", event.target.value)} maxLength={1200} rows={3} wrap="soft" placeholder="Detalhes adicionais para conversar com o artista" className="min-w-0 w-full resize-y break-words rounded-xl border border-white/10 bg-[#101010]/70 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20 [overflow-wrap:anywhere]" /></Field>
           <button type="submit" className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#6C1EE7] px-5 text-sm font-semibold text-white transition hover:bg-[#BA3BE7]">Revisar contrato fictício <ArrowRight className="size-4" /></button>
         </form>
       </section>}
@@ -329,27 +473,27 @@ export function ContractDemoFlow({ artist }: { artist: Artist }) {
           <p>As informações digitadas servem apenas para montar este resumo temporário. Não inclua dados pessoais ou sensíveis; a proposta não é enviada nem gravada no sistema.</p>
         </div>
         <div className="mt-4"><CheckOption checked={buyerAccepted} onChange={setBuyerAccepted}>Li os detalhes e aceito continuar com esta proposta fictícia.</CheckOption></div>
-        <button type="button" disabled={!buyerAccepted} onClick={() => setStage("sent")} className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#6C1EE7] px-5 text-sm font-semibold text-white transition hover:bg-[#BA3BE7] disabled:cursor-not-allowed disabled:opacity-45">Aceitar e simular envio ao artista <ArrowRight className="size-4" /></button>
+        <button type="button" disabled={!buyerAccepted} onClick={simulateProposalSend} className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#6C1EE7] px-5 text-sm font-semibold text-white transition hover:bg-[#BA3BE7] disabled:cursor-not-allowed disabled:opacity-45">Aceitar e simular envio ao artista <ArrowRight className="size-4" /></button>
       </section>}
 
       {stage === "sent" && <section className="rounded-2xl border border-white/10 bg-[#222226] p-6 text-center sm:p-10">
         <span className="mx-auto flex size-16 items-center justify-center rounded-2xl border border-emerald-400/25 bg-emerald-400/10 text-emerald-200"><Check className="size-8" /></span>
         <p className="mt-5 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-200">Envio simulado</p>
         <h1 className="mt-2 text-2xl font-bold">Proposta preparada para {artist.name}</h1>
-        <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-white/55">Em uma versão futura, a proposta seria encaminhada ao artista para aceite ou contraproposta. Por enquanto, você pode simular a resposta aqui.</p>
+        <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-white/55">{isOwnProfile ? "A proposta já apareceu nas notificações do seu perfil. Você pode abri-la por lá ou continuar agora como artista." : "Em uma versão futura, a proposta seria encaminhada ao artista para aceite ou contraproposta. Por enquanto, você pode simular a resposta aqui."}</p>
         <div className="mx-auto mt-6 max-w-lg text-left">{summary()}</div>
-        <button type="button" onClick={() => setStage("artist")} className="mt-6 inline-flex h-12 w-full max-w-lg items-center justify-center gap-2 rounded-xl bg-[#6C1EE7] px-5 text-sm font-semibold text-white transition hover:bg-[#BA3BE7]">Simular resposta do artista <ArrowRight className="size-4" /></button>
+        <button type="button" onClick={() => setStage("artist")} className="mt-6 inline-flex h-12 w-full max-w-lg items-center justify-center gap-2 rounded-xl bg-[#6C1EE7] px-5 text-sm font-semibold text-white transition hover:bg-[#BA3BE7]">{isOwnProfile ? "Abrir proposta recebida" : "Simular resposta do artista"} <ArrowRight className="size-4" /></button>
       </section>}
 
       {stage === "artist" && <section className="rounded-2xl border border-white/10 bg-[#222226] p-5 sm:p-7">
         <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#D6A0FF]">Etapa 3 · Resposta do artista</p>
         <h1 className="mt-2 text-2xl font-bold">{artist.name}, você aceita a proposta?</h1>
-        <p className="mt-2 text-sm text-white/55">Simule o outro lado do fluxo: aceitar as condições ou pedir um ajuste.</p>
+        <p className="mt-2 text-sm text-white/55">{isOwnProfile ? "Você está analisando a proposta recebida pelo seu próprio perfil. O aceite atualizará a simulação e gerará uma nova notificação." : "Simule o outro lado do fluxo: aceitar as condições ou pedir um ajuste."}</p>
         <div className="mt-5">{summary()}</div>
         <div className="mt-4"><CheckOption checked={artistAccepted} onChange={setArtistAccepted}>Confirmo, como artista, que aceito os detalhes desta proposta fictícia.</CheckOption></div>
-        <button type="button" disabled={!artistAccepted} onClick={() => setStage("escrow")} className="mt-3 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#6C1EE7] px-5 text-sm font-semibold text-white transition hover:bg-[#BA3BE7] disabled:cursor-not-allowed disabled:opacity-45">Aceitar contrato fictício <Check className="size-4" /></button>
+        <button type="button" disabled={!artistAccepted} onClick={acceptContract} className="mt-3 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#6C1EE7] px-5 text-sm font-semibold text-white transition hover:bg-[#BA3BE7] disabled:cursor-not-allowed disabled:opacity-45">Aceitar contrato fictício <Check className="size-4" /></button>
         <div className="my-5 border-t border-white/10" />
-        <Field label="Ou descreva um ajuste para a proposta"><textarea value={changeRequest} onChange={(event) => setChangeRequest(event.target.value)} maxLength={800} rows={3} placeholder="Ex.: preciso alterar o horário de chegada para 90 minutos antes" className="w-full resize-y rounded-xl border border-white/10 bg-[#101010]/70 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20" /></Field>
+        <Field label="Ou descreva um ajuste para a proposta"><textarea value={changeRequest} onChange={(event) => setChangeRequest(event.target.value)} maxLength={800} rows={3} wrap="soft" placeholder="Ex.: preciso alterar o horário de chegada para 90 minutos antes" className="min-w-0 w-full resize-y break-words rounded-xl border border-white/10 bg-[#101010]/70 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20 [overflow-wrap:anywhere]" /></Field>
         <button type="button" disabled={!changeRequest.trim()} onClick={() => setStage("adjustment")} className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-xl border border-white/15 text-sm font-semibold text-white/80 transition hover:border-[#BA3BE7] hover:text-white disabled:cursor-not-allowed disabled:opacity-40">Solicitar ajuste</button>
       </section>}
 
@@ -357,7 +501,7 @@ export function ContractDemoFlow({ artist }: { artist: Artist }) {
         <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#D6A0FF]">Contraproposta fictícia</p>
         <h1 className="mt-2 text-2xl font-bold">O artista sugeriu um ajuste</h1>
         <p className="mt-2 text-sm text-white/55">Em um fluxo real, o contratante poderia responder ou negociar novamente.</p>
-        <blockquote className="mt-5 rounded-xl border-l-2 border-[#BA3BE7] bg-[#101010]/50 p-4 text-sm leading-relaxed text-white/75">“{changeRequest}”</blockquote>
+        <blockquote className="mt-5 min-w-0 max-w-full break-words whitespace-pre-wrap rounded-xl border-l-2 border-[#BA3BE7] bg-[#101010]/50 p-4 text-sm leading-relaxed text-white/75 [overflow-wrap:anywhere]">“{changeRequest}”</blockquote>
         <div className="mt-5">{summary()}</div>
         <button type="button" onClick={() => { update("extraTerms", [draft.extraTerms, `Ajuste simulado aceito: ${changeRequest}`].filter(Boolean).join("\n")); setArtistAccepted(true); setStage("escrow"); }} className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#6C1EE7] px-5 text-sm font-semibold text-white transition hover:bg-[#BA3BE7]">Simular aceite do ajuste <Check className="size-4" /></button>
         <button type="button" onClick={() => setStage("details")} className="mt-2 h-11 w-full rounded-xl border border-white/15 text-sm text-white/70 transition hover:bg-white/5">Voltar e alterar proposta</button>
@@ -393,7 +537,7 @@ export function ContractDemoFlow({ artist }: { artist: Artist }) {
           })}
         </div>
         <p className="mt-2 text-center text-sm font-semibold text-amber-100">{reviewRating} de 5 estrelas</p>
-        <div className="mt-6"><Field label="Comentário (opcional)"><textarea value={reviewComment} onChange={(event) => setReviewComment(event.target.value)} rows={4} maxLength={800} placeholder="Conte o que achou da apresentação" className="w-full resize-y rounded-xl border border-white/10 bg-[#101010]/70 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20" /></Field></div>
+        <div className="mt-6"><Field label="Comentário (opcional)"><textarea value={reviewComment} onChange={(event) => setReviewComment(event.target.value)} rows={4} maxLength={800} wrap="soft" placeholder="Conte o que achou da apresentação" className="min-w-0 w-full resize-y break-words rounded-xl border border-white/10 bg-[#101010]/70 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20 [overflow-wrap:anywhere]" /></Field></div>
         <button type="button" onClick={saveDemoReview} className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#6C1EE7] px-5 text-sm font-semibold text-white transition hover:bg-[#BA3BE7]">Enviar avaliação simulada e abrir perfil <ArrowRight className="size-4" /></button>
       </section>}
     </main>

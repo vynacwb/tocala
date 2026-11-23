@@ -3,13 +3,14 @@
 /* eslint-disable @next/next/no-img-element */
 import { useActionState, useEffect, useMemo, useState, type ChangeEvent } from "react";
 import Link from "next/link";
-import { Camera, ChevronDown, ImagePlus, LoaderCircle, Mail, MapPin, Phone, Plus, Save, Sparkles, Trash2, UserRound } from "lucide-react";
+import { Camera, ChevronDown, DollarSign, ImagePlus, LoaderCircle, Mail, MapPin, Music2, Phone, Plus, Save, Sparkles, Trash2, UserRound } from "lucide-react";
 import { saveProfileSettings } from "@/app/perfil/configuracoes/actions";
 import { useToast } from "@/components/providers/app-providers";
 import { Button } from "@/components/ui/button";
 import type { CareerExperience, ProfileSettingsActionState, ProfileSettingsData } from "@/lib/profile-settings";
 import { createClient } from "@/utils/supabase/client";
 import { MUSIC_GENRES } from "@/lib/genres";
+import { MUSIC_INSTRUMENT_GROUPS } from "@/lib/instruments";
 
 const initialActionState: ProfileSettingsActionState = { status: "idle", message: "", submissionId: 0 };
 
@@ -42,7 +43,7 @@ function PhotoUrlField({ value, onChange, label }: { value: string; onChange: (v
             onChange={(event) => onChange(event.target.value)}
             placeholder="https://imagem..."
             aria-label={`${label}, URL da imagem`}
-            className="h-8 w-full bg-transparent px-1 text-xs text-white outline-none placeholder:text-white/35"
+            className="h-11 w-full bg-transparent px-2 text-base text-white outline-none placeholder:text-white/35 sm:text-xs"
           />
         </div>
       </div>
@@ -57,9 +58,14 @@ export function ProfileSettingsForm({ initialData, configured }: { initialData: 
   const [username, setUsername] = useState(initialData.username);
   const [contactEmail, setContactEmail] = useState(initialData.contactEmail);
   const [contactPhone, setContactPhone] = useState(initialData.contactPhone);
+  const [estimatedPrice, setEstimatedPrice] = useState(initialData.estimatedPrice);
+  const [priceUnit, setPriceUnit] = useState<"hourly" | "show">(initialData.priceUnit);
+  const [acceptsDifferentProposals, setAcceptsDifferentProposals] = useState(initialData.acceptsDifferentProposals);
+  const [profileVisible, setProfileVisible] = useState(initialData.profileVisible);
   const [city, setCity] = useState(initialData.city);
   const [stateCode, setStateCode] = useState(initialData.state);
-  const [genre, setGenre] = useState(initialData.genre);
+  const [genres, setGenres] = useState(initialData.genres);
+  const [instruments, setInstruments] = useState(initialData.instruments);
   const [bio, setBio] = useState(initialData.bio);
   const [avatarUrl, setAvatarUrl] = useState(initialData.avatarUrl);
   const [avatarPositionX, setAvatarPositionX] = useState(initialData.avatarPositionX);
@@ -166,7 +172,7 @@ export function ProfileSettingsForm({ initialData, configured }: { initialData: 
             <div className="mt-4 rounded-xl border border-white/10 bg-[#101010]/50 p-3">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-xs font-medium text-white/75">Ajustar enquadramento</p>
-                <button type="button" onClick={() => { setAvatarPositionX(50); setAvatarPositionY(50); }} className="text-xs text-[#D6A0FF] transition hover:text-white">Centralizar</button>
+                <button type="button" onClick={() => { setAvatarPositionX(50); setAvatarPositionY(50); }} className="tap-target inline-flex items-center rounded-lg px-2 text-xs text-[#D6A0FF] transition-all duration-200 hover:bg-white/[0.04] hover:text-white">Centralizar</button>
               </div>
               <p className="mt-1 text-[11px] leading-relaxed text-white/40">Mova o foco para escolher qual parte da foto aparece no perfil.</p>
               <label className="mt-3 block">
@@ -197,14 +203,68 @@ export function ProfileSettingsForm({ initialData, configured }: { initialData: 
                 <input name="username" value={username} onChange={(event) => setUsername(event.target.value.replace(/^@/, ""))} minLength={3} maxLength={30} pattern="[A-Za-z0-9._-]+" required placeholder="seu.usuario" className="h-14 w-full rounded-xl border border-white/15 bg-[#101010]/70 pl-9 pr-4 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20" />
               </div>
             </label>
-            <label className="relative block sm:col-span-2">
-              <FieldLabel>Estilo musical</FieldLabel>
-              <select name="genre" value={genre} onChange={(event) => setGenre(event.target.value)} required className="h-14 w-full appearance-none rounded-xl border border-white/15 bg-[#101010]/70 px-4 pr-12 text-sm text-white outline-none transition focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20">
-                <option value="" disabled>Selecione seu estilo</option>
-                {MUSIC_GENRES.map((item) => <option key={item} value={item}>{item}</option>)}
-              </select>
-              <ChevronDown className="pointer-events-none absolute bottom-[18px] right-4 size-4 text-[#D6A0FF]" />
-            </label>
+            <section className="sm:col-span-2" aria-labelledby="profile-genres-title">
+              <div className="mb-3 flex items-center gap-2">
+                <Music2 className="size-4 text-[#D6A0FF]" />
+                <h3 id="profile-genres-title" className="text-sm font-medium text-white/80">Estilos musicais</h3>
+                <span className="text-[11px] text-white/35">Selecione todos que se aplicam</span>
+              </div>
+              <details className="group relative">
+                <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 rounded-xl border border-white/15 bg-[#101010]/70 px-4 py-3 text-sm transition hover:border-white/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#BA3BE7] [&::-webkit-details-marker]:hidden">
+                  <span className={genres.length ? "min-w-0 truncate text-white" : "text-white/40"}>
+                    {genres.length ? genres.join(", ") : "Selecione um ou mais estilos musicais"}
+                  </span>
+                  <span className="flex shrink-0 items-center gap-3">
+                    {genres.length > 0 && <span className="rounded-full bg-[#6C1EE7]/25 px-2.5 py-1 text-[10px] font-semibold text-[#D6A0FF]">{genres.length} {genres.length === 1 ? "selecionado" : "selecionados"}</span>}
+                    <ChevronDown className="size-4 text-white/50 transition group-open:rotate-180" aria-hidden="true" />
+                  </span>
+                </summary>
+                <div className="mt-2 max-h-72 overflow-y-auto rounded-2xl border border-white/10 bg-[#151515] p-2 shadow-xl shadow-black/30 [scrollbar-color:#6C1EE7_#242424] [scrollbar-width:thin]">
+                  {MUSIC_GENRES.map((item) => {
+                    const checked = genres.includes(item);
+                    return <label key={item} className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${checked ? "bg-[#6C1EE7]/20 text-white" : "text-white/65 hover:bg-white/[0.05] hover:text-white"}`}>
+                      <input type="checkbox" name="genres" value={item} checked={checked} onChange={() => setGenres((current) => checked ? current.filter((genre) => genre !== item) : [...current, item])} className="size-4 shrink-0 accent-[#BA3BE7]" />
+                      {item}
+                    </label>;
+                  })}
+                </div>
+              </details>
+              <p className="mt-2 text-xs text-white/40">{genres.length} {genres.length === 1 ? "estilo selecionado" : "estilos selecionados"}</p>
+            </section>
+            <section className="sm:col-span-2" aria-labelledby="profile-instruments-title">
+              <div className="mb-3 flex items-center gap-2">
+                <Music2 className="size-4 text-[#D6A0FF]" />
+                <h3 id="profile-instruments-title" className="text-sm font-medium text-white/80">Instrumentos que você toca</h3>
+                <span className="text-[11px] text-white/35">Opcional</span>
+              </div>
+              <p className="mb-4 text-xs text-white/45">Selecione todos os instrumentos que você toca para aparecer nos filtros de busca.</p>
+              <details className="group relative">
+                <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 rounded-xl border border-white/15 bg-[#101010]/70 px-4 py-3 text-sm transition hover:border-white/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#BA3BE7] [&::-webkit-details-marker]:hidden">
+                  <span className={instruments.length ? "min-w-0 truncate text-white" : "text-white/40"}>
+                    {instruments.length ? instruments.join(", ") : "Selecione um ou mais instrumentos"}
+                  </span>
+                  <span className="flex shrink-0 items-center gap-3">
+                    {instruments.length > 0 && <span className="rounded-full bg-[#6C1EE7]/25 px-2.5 py-1 text-[10px] font-semibold text-[#D6A0FF]">{instruments.length} {instruments.length === 1 ? "selecionado" : "selecionados"}</span>}
+                    <ChevronDown className="size-4 text-white/50 transition group-open:rotate-180" aria-hidden="true" />
+                  </span>
+                </summary>
+                <div className="mt-2 max-h-[390px] space-y-4 overflow-y-auto rounded-2xl border border-white/10 bg-[#151515] p-3 shadow-xl shadow-black/30 sm:p-4 [scrollbar-color:#6C1EE7_#242424] [scrollbar-width:thin]">
+                  {MUSIC_INSTRUMENT_GROUPS.map((group) => <fieldset key={group.name}>
+                    <legend className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#D6A0FF]">{group.name}</legend>
+                    <div className="space-y-1">
+                      {group.instruments.map((instrument) => {
+                        const checked = instruments.includes(instrument);
+                        return <label key={instrument} className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${checked ? "bg-[#6C1EE7]/20 text-white" : "text-white/65 hover:bg-white/[0.05] hover:text-white"}`}>
+                          <input type="checkbox" name="instruments" value={instrument} checked={checked} onChange={() => setInstruments((current) => checked ? current.filter((item) => item !== instrument) : [...current, instrument])} className="size-4 shrink-0 accent-[#BA3BE7]" />
+                          {instrument}
+                        </label>;
+                      })}
+                    </div>
+                  </fieldset>)}
+                </div>
+              </details>
+              <p className="mt-2 text-xs text-white/40">{instruments.length} {instruments.length === 1 ? "instrumento selecionado" : "instrumentos selecionados"}</p>
+            </section>
             <div className="hidden rounded-2xl border border-[#BA3BE7]/20 bg-[#6C1EE7]/10 p-4 sm:col-span-2 sm:flex sm:items-center sm:gap-3">
               <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#6C1EE7]/20 text-[#D6A0FF]"><Sparkles className="size-5" /></span>
               <p className="text-xs leading-relaxed text-white/55">Um perfil completo aumenta sua visibilidade nas buscas e ajuda contratantes a conhecerem seu trabalho.</p>
@@ -249,6 +309,37 @@ export function ProfileSettingsForm({ initialData, configured }: { initialData: 
       </section>
 
       <section className="rounded-3xl border border-white/10 bg-[#1A1A1A] p-5 shadow-2xl shadow-black/20 sm:p-7 lg:p-9">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[#BA3BE7]">Contratações</p>
+          <h2 className="mt-1 text-xl font-semibold tracking-[-0.03em] lg:text-2xl">Valor estimado</h2>
+          <p className="mt-2 text-sm text-white/50">Informe quanto costuma cobrar. Esse valor é uma referência e pode ser negociado em cada proposta.</p>
+        </div>
+        <div className="mt-5 grid gap-5 sm:grid-cols-2">
+          <label className="block">
+            <FieldLabel optional>Preço habitual</FieldLabel>
+            <span className="relative block">
+              <DollarSign className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[#D6A0FF]" />
+              <span className="pointer-events-none absolute left-11 top-1/2 -translate-y-1/2 text-sm text-white/50">R$</span>
+              <input name="estimatedPrice" type="number" min="0" max="99999999.99" step="0.01" value={estimatedPrice} onChange={(event) => setEstimatedPrice(event.target.value)} placeholder="0,00" className="h-14 w-full rounded-xl border border-white/15 bg-[#101010]/70 pl-[4.5rem] pr-4 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20" />
+            </span>
+          </label>
+          <fieldset>
+            <legend className="mb-2 text-sm font-medium text-white/80">Como o valor é calculado?</legend>
+            <div className="grid grid-cols-2 gap-2">
+              {[{ value: "hourly", label: "Por hora" }, { value: "show", label: "Por show" }].map((option) => <label key={option.value} className={`flex min-h-14 cursor-pointer items-center gap-2 rounded-xl border px-3 text-sm transition ${priceUnit === option.value ? "border-[#BA3BE7] bg-[#6C1EE7]/20 text-white" : "border-white/15 bg-[#101010]/70 text-white/60 hover:border-white/25"}`}>
+                <input type="radio" name="priceUnit" value={option.value} checked={priceUnit === option.value} onChange={() => setPriceUnit(option.value as "hourly" | "show")} className="size-4 accent-[#BA3BE7]" />
+                {option.label}
+              </label>)}
+            </div>
+          </fieldset>
+          <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-white/10 bg-[#101010]/60 p-4 sm:col-span-2">
+            <input type="checkbox" name="acceptsDifferentProposals" value="true" checked={acceptsDifferentProposals} onChange={(event) => setAcceptsDifferentProposals(event.target.checked)} className="mt-0.5 size-4 shrink-0 accent-[#BA3BE7]" />
+            <span><span className="block text-sm font-medium text-white/85">Aceito propostas com valores diferentes</span><span className="mt-1 block text-xs leading-relaxed text-white/45">Contratantes poderão enviar uma proposta acima ou abaixo do valor estimado.</span></span>
+          </label>
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-white/10 bg-[#1A1A1A] p-5 shadow-2xl shadow-black/20 sm:p-7 lg:p-9">
         <div className="flex items-end justify-between gap-4">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[#BA3BE7]">Apresentação</p>
@@ -274,7 +365,7 @@ export function ProfileSettingsForm({ initialData, configured }: { initialData: 
               <div className="mb-5 flex items-center justify-between gap-4">
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[#D6A0FF]">Experiência {String(experienceIndex + 1).padStart(2, "0")}</span>
                 {experiences.length > 1 && (
-                  <button type="button" onClick={() => setExperiences((current) => current.filter((item) => item.id !== experience.id))} className="flex size-9 items-center justify-center rounded-xl text-white/40 transition hover:bg-rose-500/10 hover:text-rose-300" aria-label={`Remover experiência ${experienceIndex + 1}`}>
+                  <button type="button" onClick={() => setExperiences((current) => current.filter((item) => item.id !== experience.id))} className="tap-target flex items-center justify-center rounded-xl text-white/40 transition-all duration-200 hover:bg-rose-500/10 hover:text-rose-300 active:scale-95" aria-label={`Remover experiência ${experienceIndex + 1}`}>
                     <Trash2 className="size-4" />
                   </button>
                 )}
@@ -299,15 +390,23 @@ export function ProfileSettingsForm({ initialData, configured }: { initialData: 
           ))}
         </div>
 
-        <button type="button" onClick={addExperience} className="mt-5 flex h-14 w-full items-center justify-between rounded-2xl border border-dashed border-[#BA3BE7]/45 bg-[#6C1EE7]/10 px-5 text-sm font-semibold text-[#D6A0FF] transition hover:border-[#BA3BE7] hover:bg-[#6C1EE7]/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7]">
+        <button type="button" onClick={addExperience} className="tap-target mt-5 flex h-14 w-full items-center justify-between rounded-2xl border border-dashed border-[#BA3BE7]/45 bg-[#6C1EE7]/10 px-5 text-sm font-semibold text-[#D6A0FF] transition-all duration-200 hover:border-[#BA3BE7] hover:bg-[#6C1EE7]/20 active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7]">
           <span>Adicionar experiência</span><Plus className="size-5" />
         </button>
       </section>
 
+      <section className="rounded-3xl border border-[#BA3BE7]/25 bg-[#6C1EE7]/10 p-5 shadow-2xl shadow-black/20 sm:p-7 lg:p-9">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[#D6A0FF]">Publicação</p>
+        <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-2xl border border-white/10 bg-[#101010]/45 p-4 sm:p-5">
+          <input type="checkbox" name="profileVisible" value="true" checked={profileVisible} onChange={(event) => setProfileVisible(event.target.checked)} className="mt-0.5 size-4 shrink-0 accent-[#BA3BE7]" />
+          <span><span className="block text-sm font-semibold text-white">Exibir meu perfil na vitrine e nas buscas</span><span className="mt-1 block text-xs leading-relaxed text-white/55">Sua conta e seus dados salvos continuam ativos mesmo com esta opção desmarcada. Você controla quando o perfil artístico fica público.</span></span>
+        </label>
+      </section>
+
       {!configured && <p className="rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">Conecte o Supabase para habilitar o salvamento. A tela está em modo de demonstração.</p>}
 
-      <div className="sticky bottom-4 z-20 flex items-center justify-end gap-3 rounded-2xl border border-white/10 bg-[#1A1A1A]/90 p-3 shadow-2xl shadow-black/50 backdrop-blur-xl sm:p-4">
-        <Link href="/perfil" className="inline-flex h-12 items-center justify-center rounded-xl border border-white/15 px-4 text-sm font-semibold text-white/70 transition hover:border-white/30 hover:text-white">Pular personalização</Link>
+      <div className="sticky bottom-[calc(env(safe-area-inset-bottom)+12px)] z-30 flex flex-col-reverse items-stretch gap-2 rounded-2xl border border-white/10 bg-[#1A1A1A]/92 p-3 shadow-2xl shadow-black/50 backdrop-blur-xl min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-end sm:p-4">
+        <Link href="/perfil" className="tap-target inline-flex h-12 items-center justify-center rounded-xl border border-white/15 px-4 text-sm font-semibold text-white/70 transition-all duration-200 hover:border-white/30 hover:bg-white/[0.04] hover:text-white active:scale-[0.98]">Pular personalização</Link>
         <Button type="submit" className="min-w-36" disabled={pending || !configured}>
           {pending ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />}
           {pending ? "Salvando..." : "Salvar perfil"}

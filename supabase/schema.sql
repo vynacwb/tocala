@@ -12,6 +12,8 @@ create table if not exists public.profiles (
   account_type text not null default 'MUSICO' check (account_type in ('MUSICO', 'ORGANIZADOR')),
   status text not null default 'ATIVO' check (status in ('ATIVO', 'INATIVO')),
   genre text not null default '',
+  genres text[] not null default '{}',
+  instruments text[] not null default '{}',
   bio text not null default '',
   career text not null default '',
   avatar_url text not null default '',
@@ -19,6 +21,9 @@ create table if not exists public.profiles (
   avatar_position_y smallint not null default 50 check (avatar_position_y between 0 and 100),
   contact_email text not null default '',
   contact_phone text not null default '',
+  estimated_price numeric(10, 2) check (estimated_price is null or estimated_price >= 0),
+  price_unit text not null default 'show' check (price_unit in ('hourly', 'show')),
+  accepts_different_proposals boolean not null default false,
   city text not null default '',
   state text not null default '',
   profile_visible boolean not null default false,
@@ -34,8 +39,24 @@ alter table public.profiles add column if not exists real_name text not null def
 alter table public.profiles add column if not exists stage_name text not null default '';
 alter table public.profiles add column if not exists contact_email text not null default '';
 alter table public.profiles add column if not exists contact_phone text not null default '';
+alter table public.profiles add column if not exists estimated_price numeric(10, 2);
+alter table public.profiles add column if not exists price_unit text not null default 'show';
+alter table public.profiles add column if not exists accepts_different_proposals boolean not null default false;
+alter table public.profiles drop constraint if exists profiles_estimated_price_check;
+alter table public.profiles add constraint profiles_estimated_price_check check (estimated_price is null or estimated_price >= 0);
+alter table public.profiles drop constraint if exists profiles_price_unit_check;
+alter table public.profiles add constraint profiles_price_unit_check check (price_unit in ('hourly', 'show'));
 alter table public.profiles add column if not exists city text not null default '';
 alter table public.profiles add column if not exists state text not null default '';
+alter table public.profiles add column if not exists instruments text[] not null default '{}';
+alter table public.profiles add column if not exists genres text[] not null default '{}';
+update public.profiles p
+set genres = array(
+  select btrim(value)
+  from unnest(regexp_split_to_array(p.genre, '[·,]')) as parsed(value)
+  where btrim(value) <> ''
+)
+where cardinality(p.genres) = 0 and btrim(p.genre) <> '';
 alter table public.profiles add column if not exists profile_visible boolean not null default false;
 alter table public.profiles add column if not exists booking_weekdays smallint[] not null default '{0,1,2,3,4,5,6}'::smallint[] check (booking_weekdays <@ array[0,1,2,3,4,5,6]::smallint[]);
 alter table public.profiles add column if not exists avatar_position_x smallint not null default 50 check (avatar_position_x between 0 and 100);
@@ -128,6 +149,19 @@ create table if not exists public.reviews (
   constraint reviews_event_author_artist_unique unique (event_id, author_id, artist_id)
 );
 
+-- Avaliações exclusivamente demonstrativas, compartilhadas e separadas das avaliações reais.
+create table if not exists public.demo_reviews (
+  id uuid primary key default gen_random_uuid(),
+  source_id text unique,
+  artist_id uuid not null references public.profiles(id) on delete cascade,
+  author_id uuid not null references public.profiles(id) on delete cascade,
+  author_name text not null default 'Contratante fictício',
+  body text not null default '' check (char_length(body) <= 800),
+  rating integer not null check (rating between 1 and 5),
+  created_at timestamptz not null default now(),
+  constraint demo_reviews_author_artist_differ check (author_id <> artist_id)
+);
+
 create index if not exists musician_profiles_genres_idx on public.musician_profiles using gin (musical_genres);
 create index if not exists artist_availability_date_status_idx on public.artist_availability (availability_date, status);
 create index if not exists events_organizer_idx on public.events (organizer_id);
@@ -137,6 +171,7 @@ create index if not exists proposals_musician_idx on public.proposals (musician_
 create index if not exists messages_proposal_sent_at_idx on public.messages (proposal_id, sent_at);
 create index if not exists reviews_artist_created_at_idx on public.reviews (artist_id, created_at desc);
 create index if not exists reviews_event_idx on public.reviews (event_id);
+create index if not exists demo_reviews_artist_created_at_idx on public.demo_reviews (artist_id, created_at desc);
 
 alter table public.profiles enable row level security;
 alter table public.musician_profiles enable row level security;
@@ -145,25 +180,34 @@ alter table public.events enable row level security;
 alter table public.proposals enable row level security;
 alter table public.messages enable row level security;
 alter table public.reviews enable row level security;
+alter table public.demo_reviews enable row level security;
 alter table public.artist_availability enable row level security;
 
 grant usage on schema public to anon, authenticated;
-grant select on public.profiles, public.musician_profiles, public.organizer_profiles, public.events, public.reviews, public.artist_availability to anon, authenticated;
+grant select on public.profiles, public.musician_profiles, public.organizer_profiles, public.events, public.reviews, public.demo_reviews, public.artist_availability to anon, authenticated;
 grant insert on public.profiles to authenticated;
-grant update (full_name, real_name, stage_name, username, account_type, genre, bio, career, avatar_url, avatar_position_x, avatar_position_y, contact_email, contact_phone, city, state, profile_visible, booking_weekdays) on public.profiles to authenticated;
+grant update (full_name, real_name, stage_name, username, account_type, genre, genres, instruments, bio, career, avatar_url, avatar_position_x, avatar_position_y, contact_email, contact_phone, estimated_price, price_unit, accepts_different_proposals, city, state, profile_visible, booking_weekdays) on public.profiles to authenticated;
 grant insert, update, delete on public.artist_availability to authenticated;
 grant insert, update, delete on public.musician_profiles, public.organizer_profiles, public.events to authenticated;
-grant insert on public.proposals, public.messages, public.reviews to authenticated;
+grant insert on public.proposals, public.messages, public.reviews, public.demo_reviews to authenticated;
 grant update (status, negotiated_amount) on public.proposals to authenticated;
 grant update (is_read) on public.messages to authenticated;
 grant update (body, rating), delete on public.reviews to authenticated;
 grant select on public.proposals, public.messages to authenticated;
 
 drop policy if exists "Profiles are publicly readable" on public.profiles;
-create policy "Profiles are publicly readable" on public.profiles for select using (true);
+create policy "Profiles are publicly readable" on public.profiles for select using (
+  (profile_visible = true and status = 'ATIVO') or (select auth.uid()) = id
+);
 
 drop policy if exists "Artist availability is publicly readable" on public.artist_availability;
-create policy "Artist availability is publicly readable" on public.artist_availability for select using (true);
+create policy "Artist availability is publicly readable" on public.artist_availability for select using (
+  (select auth.uid()) = user_id
+  or exists (
+    select 1 from public.profiles p
+    where p.id = user_id and p.profile_visible = true and p.status = 'ATIVO'
+  )
+);
 
 drop policy if exists "Artists manage their own availability" on public.artist_availability;
 create policy "Artists manage their own availability" on public.artist_availability for all to authenticated
@@ -182,7 +226,13 @@ create policy "Users update their own profile" on public.profiles for update to 
   using ((select auth.uid()) = id) with check ((select auth.uid()) = id);
 
 drop policy if exists "Musicians are publicly readable" on public.musician_profiles;
-create policy "Musicians are publicly readable" on public.musician_profiles for select using (true);
+create policy "Musicians are publicly readable" on public.musician_profiles for select using (
+  (select auth.uid()) = user_id
+  or exists (
+    select 1 from public.profiles p
+    where p.id = user_id and p.profile_visible = true and p.status = 'ATIVO'
+  )
+);
 
 drop policy if exists "Musicians manage their own profile" on public.musician_profiles;
 create policy "Musicians manage their own profile" on public.musician_profiles for all to authenticated
@@ -323,6 +373,20 @@ drop policy if exists "Authors delete their reviews" on public.reviews;
 create policy "Authors delete their reviews" on public.reviews for delete to authenticated
   using (author_id = (select auth.uid()));
 
+drop policy if exists "Demo reviews are publicly readable" on public.demo_reviews;
+create policy "Demo reviews are publicly readable" on public.demo_reviews for select using (true);
+
+drop policy if exists "Authenticated users add demo reviews" on public.demo_reviews;
+create policy "Authenticated users add demo reviews" on public.demo_reviews for insert to authenticated
+  with check (
+    author_id = (select auth.uid())
+    and artist_id <> (select auth.uid())
+    and exists (
+      select 1 from public.profiles p
+      where p.id = artist_id and p.account_type = 'MUSICO' and p.profile_visible = true and p.status = 'ATIVO'
+    )
+  );
+
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql
@@ -343,17 +407,25 @@ as $$
 declare
   generated_username text;
   requested_type text;
+  provider_name text;
 begin
   generated_username := lower(regexp_replace(split_part(coalesce(new.email, 'artista'), '@', 1), '[^a-zA-Z0-9_]+', '', 'g'))
     || '-' || substr(new.id::text, 1, 6);
   requested_type := upper(coalesce(new.raw_user_meta_data ->> 'account_type', 'MUSICO'));
+  provider_name := coalesce(
+    new.raw_user_meta_data ->> 'full_name',
+    new.raw_user_meta_data ->> 'name',
+    new.raw_user_meta_data ->> 'display_name',
+    new.raw_user_meta_data ->> 'preferred_username',
+    ''
+  );
 
   if requested_type not in ('MUSICO', 'ORGANIZADOR') then
     requested_type := 'MUSICO';
   end if;
 
   insert into public.profiles (id, full_name, real_name, username, account_type)
-  values (new.id, coalesce(new.raw_user_meta_data ->> 'full_name', ''), coalesce(new.raw_user_meta_data ->> 'full_name', ''), generated_username, requested_type)
+  values (new.id, provider_name, provider_name, generated_username, requested_type)
   on conflict (id) do nothing;
 
   return new;

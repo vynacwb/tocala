@@ -3,7 +3,12 @@
 import { revalidatePath } from "next/cache";
 import type { CareerExperience, ProfileSettingsActionState } from "@/lib/profile-settings";
 import { serializeCareer } from "@/lib/profile-settings";
+import { MUSIC_INSTRUMENTS } from "@/lib/instruments";
+import { MUSIC_GENRES } from "@/lib/genres";
 import { createClient } from "@/utils/supabase/server";
+
+const allowedInstruments = new Set<string>(MUSIC_INSTRUMENTS);
+const allowedGenres = new Set<string>(MUSIC_GENRES);
 
 function isWebUrl(value: string) {
   if (!value) return true;
@@ -35,9 +40,16 @@ export async function saveProfileSettings(
   const username = String(formData.get("username") ?? "").trim().replace(/^@/, "").toLowerCase();
   const contactEmail = String(formData.get("contactEmail") ?? "").trim().toLowerCase();
   const contactPhone = String(formData.get("contactPhone") ?? "").trim();
+  const estimatedPriceInput = String(formData.get("estimatedPrice") ?? "").trim();
+  const priceUnit = String(formData.get("priceUnit") ?? "show");
+  const acceptsDifferentProposals = formData.get("acceptsDifferentProposals") === "true";
+  const profileVisible = formData.get("profileVisible") === "true";
+  const estimatedPrice = estimatedPriceInput ? Number(estimatedPriceInput) : null;
   const city = String(formData.get("city") ?? "").trim();
   const state = String(formData.get("state") ?? "").trim().toUpperCase();
-  const genre = String(formData.get("genre") ?? "").trim();
+  const genres = [...new Set(formData.getAll("genres").map((value) => String(value).trim()))];
+  const genre = genres.join(" · ");
+  const instruments = [...new Set(formData.getAll("instruments").map((value) => String(value).trim()))];
   const bio = String(formData.get("bio") ?? "").trim();
   const avatarUrl = String(formData.get("avatarUrl") ?? "").trim();
   const avatarPositionX = Number(formData.get("avatarPositionX") ?? 50);
@@ -48,8 +60,11 @@ export async function saveProfileSettings(
   if (!/^[a-z0-9._-]{3,30}$/.test(username)) return errorState("O usuário deve ter de 3 a 30 caracteres: letras, números, ponto, hífen ou underline.");
   if (contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) return errorState("Informe um e-mail de contato válido.");
   if (contactPhone.length > 30 || (contactPhone && contactPhone.replace(/\D/g, "").length < 8)) return errorState("Informe um WhatsApp válido com pelo menos 8 dígitos.");
+  if (estimatedPriceInput && (!Number.isFinite(estimatedPrice) || estimatedPrice! < 0 || estimatedPrice! > 99_999_999.99)) return errorState("Informe um valor estimado válido.");
+  if (priceUnit !== "hourly" && priceUnit !== "show") return errorState("Selecione se o valor estimado é por hora ou por show.");
   if (city.length > 100 || (state && !/^[A-Z]{2}$/.test(state)) || (Boolean(city) !== Boolean(state))) return errorState("Preencha cidade e sigla do estado juntos (por exemplo, São Paulo e SP).");
-  if (!genre || genre.length > 60) return errorState("Selecione um estilo musical válido.");
+  if (genres.length === 0 || genres.length > MUSIC_GENRES.length || genres.some((item) => !allowedGenres.has(item))) return errorState("Selecione pelo menos um estilo musical da lista.");
+  if (instruments.length > MUSIC_INSTRUMENTS.length || instruments.some((instrument) => !allowedInstruments.has(instrument))) return errorState("Selecione instrumentos da lista disponível.");
   if (bio.length > 20000) return errorState("O texto sobre o artista ultrapassou 20.000 caracteres.");
   if (!isWebUrl(avatarUrl)) return errorState("Informe uma URL válida para a foto de perfil.");
   if (![avatarPositionX, avatarPositionY].every((value) => Number.isInteger(value) && value >= 0 && value <= 100)) return errorState("Ajuste o enquadramento da foto entre 0 e 100.");
@@ -93,10 +108,15 @@ export async function saveProfileSettings(
       username,
       contact_email: contactEmail,
       contact_phone: contactPhone,
+      estimated_price: estimatedPrice,
+      price_unit: priceUnit,
+      accepts_different_proposals: acceptsDifferentProposals,
       city,
       state,
-      profile_visible: true,
+      profile_visible: profileVisible,
       genre,
+      genres,
+      instruments,
       bio,
       career,
       avatar_url: avatarUrl,
@@ -107,6 +127,7 @@ export async function saveProfileSettings(
 
   if (profileError) {
     if (profileError.code === "23505") return errorState("Este nome de usuário já está em uso.");
+    if (profileError.code === "42703" || profileError.code === "PGRST204") return errorState("Aplique a migration de valores de contratação no Supabase e tente salvar novamente.");
     return errorState("Não foi possível salvar as alterações do perfil.");
   }
 
@@ -116,7 +137,8 @@ export async function saveProfileSettings(
         user_id: user.id,
         stage_name: stageName || realName,
         bio_description: bio,
-        musical_genres: [genre],
+        musical_genres: genres,
+        base_fee: estimatedPrice,
         portfolio_links: portfolioLinks,
       },
       { onConflict: "user_id" },
@@ -128,5 +150,5 @@ export async function saveProfileSettings(
   revalidatePath("/perfil");
   revalidatePath("/perfil/configuracoes");
   revalidatePath("/");
-  return { status: "success", message: "Perfil salvo e publicado nas buscas.", submissionId: Date.now() };
+  return { status: "success", message: profileVisible ? "Perfil salvo e publicado nas buscas." : "Perfil salvo. Ele continuará privado até você decidir publicá-lo.", submissionId: Date.now() };
 }

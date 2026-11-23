@@ -11,9 +11,15 @@ export type ProfileSettingsData = {
   username: string;
   contactEmail: string;
   contactPhone: string;
+  estimatedPrice: string;
+  priceUnit: "hourly" | "show";
+  acceptsDifferentProposals: boolean;
+  profileVisible: boolean;
   city: string;
   state: string;
   genre: string;
+  genres: string[];
+  instruments: string[];
   bio: string;
   avatarUrl: string;
   avatarPositionX: number;

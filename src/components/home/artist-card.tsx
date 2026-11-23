@@ -1,24 +1,44 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
-import { Star } from "lucide-react";
+import { useSyncExternalStore } from "react";
+import { DollarSign, Star } from "lucide-react";
+import { RankingMedal } from "@/components/ranking/ranking-medal";
 import type { Artist } from "@/lib/artists";
+import { combineRating, DEMO_REVIEWS_CHANGE_EVENT, getDemoReviews } from "@/lib/demo-reviews";
+import { formatEstimatedArtistPrice } from "@/lib/artist-pricing";
+
+const subscribe = (callback: () => void) => {
+  window.addEventListener("storage", callback);
+  window.addEventListener(DEMO_REVIEWS_CHANGE_EVENT, callback);
+  return () => { window.removeEventListener("storage", callback); window.removeEventListener(DEMO_REVIEWS_CHANGE_EVENT, callback); };
+};
+const snapshot = () => window.localStorage.getItem("tocala-demo-contract-reviews") || "[]";
+const serverSnapshot = () => "[]";
 
 export function ArtistCard({ artist }: { artist: Artist }) {
+  useSyncExternalStore(subscribe, snapshot, serverSnapshot);
+  const localReviews = artist.demoReviews === undefined ? getDemoReviews(artist.id) : [];
+  const { rating, count } = combineRating(artist.rating, artist.reviews, [...(artist.demoReviews ?? []), ...localReviews]);
   return (
-    <article className="group overflow-hidden rounded-2xl border border-white/10 bg-[#1A1A1A] shadow-2xl shadow-black/40 transition duration-300 hover:-translate-y-1 hover:border-[#BA3BE7]/60">
+    <article className="group overflow-hidden rounded-2xl border border-white/10 bg-[#1A1A1A] shadow-2xl shadow-black/40 transition duration-300 hover:-translate-y-1 hover:border-[#BA3BE7]/60 active:scale-[0.985] lg:active:scale-100">
       <div className="relative aspect-square overflow-hidden bg-[#2E203B]">
         <Image src={artist.imageUrl} alt={`${artist.name} em apresentação musical`} fill sizes="(min-width: 1024px) 276px, 50vw" style={{ objectPosition: `${artist.avatarPositionX ?? 50}% ${artist.avatarPositionY ?? 50}%` }} className="object-cover transition duration-500 group-hover:scale-105" />
+        {artist.rankingPosition && artist.rankingPosition <= 3 && <div className="absolute right-2 top-2 rounded-full bg-black/70 p-1 backdrop-blur-sm"><RankingMedal position={artist.rankingPosition} compact /></div>}
       </div>
       <div className="p-3.5 lg:p-5">
         <h3 className="truncate text-sm font-semibold lg:text-lg">{artist.name}</h3>
-        <span className="mt-2 inline-flex rounded-full bg-[#6C1EE7]/20 px-2.5 py-1 text-[10px] font-medium text-[#E4C9FF] lg:text-xs">{artist.genre}</span>
+        <div className="mt-2 flex flex-wrap gap-1">{(artist.genres?.length ? artist.genres : [artist.genre]).slice(0, 3).map((genre) => <span key={genre} className="inline-flex rounded-full bg-[#6C1EE7]/20 px-2.5 py-1 text-[10px] font-medium text-[#E4C9FF] lg:text-xs">{genre}</span>)}</div>
         {(artist.city || artist.state) && <p className="mt-2 truncate text-xs text-white/50">{[artist.city, artist.state].filter(Boolean).join(", ")}</p>}
-        {artist.reviews > 0 ? <p className="mt-3 flex items-center gap-1 text-xs text-white/65 lg:mt-4 lg:text-sm" aria-label={`Avaliação ${artist.rating.toLocaleString("pt-BR")} de 5`}>
+        {artist.estimatedPrice != null && <p className="mt-2 flex items-center gap-1 text-xs font-semibold text-[#D6A0FF] lg:text-sm"><DollarSign className="size-3.5 shrink-0" /><span className="truncate">{formatEstimatedArtistPrice(artist.estimatedPrice, artist.priceUnit)}</span></p>}
+        {artist.acceptsDifferentProposals && <p className="mt-1 text-[10px] font-medium text-white/45 lg:text-xs">Aceita propostas diferentes</p>}
+        {count > 0 ? <p className="mt-3 flex items-center gap-1 text-xs text-white/65 lg:mt-4 lg:text-sm" aria-label={`Avaliação ${rating.toLocaleString("pt-BR")} de 5`}>
           <Star className="size-4 fill-[#FBBF24] text-[#FBBF24]" aria-hidden="true" />
-          <span className="font-semibold text-white">{artist.rating.toLocaleString("pt-BR", { minimumFractionDigits: 1 })}</span>
-          <span className="hidden sm:inline">({artist.reviews} avaliações)</span>
+          <span className="font-semibold text-white">{rating.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</span>
+          <span className="hidden sm:inline">({count} avaliações)</span>
         </p> : <p className="mt-3 flex items-center gap-1 text-xs font-semibold text-white/55 lg:mt-4 lg:text-sm" aria-label="Sem avaliações"><Star className="size-4 fill-transparent text-white/45" aria-hidden="true" />--</p>}
-        <Link href={`/perfil?artista=${artist.id}`} className="mt-4 block w-full rounded-lg border border-white/20 px-2 py-2.5 text-center text-xs font-semibold transition hover:border-[#BA3BE7] hover:bg-[#6C1EE7]/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7] lg:mt-5 lg:text-sm">
+        <Link href={`/perfil?artista=${artist.id}`} className="mt-4 block w-full rounded-lg border border-white/20 px-2 py-2.5 text-center text-xs font-semibold transition hover:border-[#BA3BE7] hover:bg-[#6C1EE7]/20 active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7] lg:mt-5 lg:text-sm">
           Ver Perfil
         </Link>
       </div>

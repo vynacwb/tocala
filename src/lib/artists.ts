@@ -1,9 +1,13 @@
+import type { DemoReview } from "@/lib/demo-reviews";
+
 export type Artist = {
   id: string;
   name: string;
   realName?: string;
   username: string;
   genre: string;
+  genres?: string[];
+  instruments?: string[];
   city?: string;
   state?: string;
   rating: number;
@@ -12,6 +16,12 @@ export type Artist = {
   avatarPositionX?: number;
   avatarPositionY?: number;
   bookingWeekdays?: number[];
+  demoReviews?: DemoReview[];
+  rankingPosition?: number;
+  rankingPoints?: number;
+  estimatedPrice?: number | null;
+  priceUnit?: "hourly" | "show";
+  acceptsDifferentProposals?: boolean;
 };
 
 export const featuredArtists: Artist[] = [
