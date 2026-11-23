@@ -11,16 +11,18 @@ import { createClient } from "@/utils/supabase/server";
 export const metadata: Metadata = { title: "Criar contrato fictício" };
 export const dynamic = "force-dynamic";
 
-export default async function NewContractPage({ searchParams }: { searchParams: Promise<{ artista?: string; simulacao?: string }> }) {
-  const { artista: artistId, simulacao } = await searchParams;
+export default async function NewContractPage({ searchParams }: { searchParams: Promise<{ artista?: string; simulacao?: string; papel?: string }> }) {
+  const { artista: artistId, simulacao, papel } = await searchParams;
   if (!artistId) notFound();
 
   let artist: { id: string; name: string; genre: string; imageUrl: string; rankingPosition?: number; estimatedPrice?: number | null; acceptsDifferentProposals?: boolean };
   let isOwnProfile = false;
+  let viewerId: string | undefined;
   if (isSupabaseConfigured()) {
     if (!/^[0-9a-f-]{36}$/i.test(artistId)) notFound();
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
+    viewerId = user?.id;
     isOwnProfile = user?.id === artistId;
     let profileQuery = supabase.from("profiles")
       .select("id, real_name, stage_name, full_name, username, genre, avatar_url, profile_visible, status, account_type")
@@ -55,5 +57,6 @@ export default async function NewContractPage({ searchParams }: { searchParams: 
   }
 
   const simulationId = simulacao && /^[a-zA-Z0-9-]{1,100}$/.test(simulacao) ? simulacao : undefined;
-  return <ContractDemoFlow artist={artist} isOwnProfile={isOwnProfile} simulationId={simulationId} />;
+  const requestedRole = papel === "artista" ? "artist" : "contractor";
+  return <ContractDemoFlow artist={artist} isOwnProfile={isOwnProfile} simulationId={simulationId} requestedRole={requestedRole} viewerId={viewerId} />;
 }

@@ -12,26 +12,12 @@ import { Brand } from "@/components/layout/brand";
 import { useToast } from "@/components/providers/app-providers";
 import { dateKey } from "@/lib/availability";
 import { RankingMedal } from "@/components/ranking/ranking-medal";
+import { readContractSimulation, saveContractSimulation, type ContractDraft as Draft, type ContractSimulationRole as SimulationRole, type StoredContractSimulation } from "@/lib/contract-simulations";
 
 type Artist = { id: string; name: string; genre: string; imageUrl: string; rankingPosition?: number; estimatedPrice?: number | null; acceptsDifferentProposals?: boolean };
-type Stage = "details" | "contract" | "sent" | "artist" | "adjustment" | "escrow" | "checkin" | "review";
-type SimulationRole = "contractor" | "artist";
-type Draft = {
-  eventTitle: string; eventDate: string; startTime: string; endTime: string; venueName: string; venueAddress: string; venueType: string;
-  performanceMinutes: string; arrivalMinutes: string; fee: string; transportationByArtist: boolean; mealProvided: boolean;
-  lodgingProvided: boolean; soundCheck: boolean; equipmentProvided: boolean; dateConfirmed: boolean; timeConfirmed: boolean;
-  venueConfirmed: boolean; extraTerms: string;
-};
-type StoredContractSimulation = {
-  id: string;
-  artistId: string;
-  draft: Draft;
-  status: "pending" | "accepted";
-  createdAt: string;
-  acceptedAt?: string;
-};
+type Stage = "details" | "contract" | "artist" | "adjustment" | "payment" | "checkin" | "review" | "complete";
 
-const steps = ["Proposta", "Aceite", "Artista", "Pagamento", "Check-in", "Avaliação"];
+const steps = ["Proposta", "Artista", "Pagamento", "Check-in", "Finalização"];
 const inputClass = "h-12 w-full rounded-xl border border-white/10 bg-[#101010]/70 px-3.5 text-base text-white outline-none transition-all duration-200 placeholder:text-white/30 focus:border-[#3EA6FF] focus:ring-2 focus:ring-[#3EA6FF]/20 sm:text-sm";
 
 function initialDraft(estimatedPrice?: number | null): Draft {
@@ -40,32 +26,6 @@ function initialDraft(estimatedPrice?: number | null): Draft {
     performanceMinutes: "90", arrivalMinutes: "60", fee: estimatedPrice == null ? "" : String(estimatedPrice), transportationByArtist: false, mealProvided: false,
     lodgingProvided: false, soundCheck: true, equipmentProvided: true, dateConfirmed: false, timeConfirmed: false, venueConfirmed: false, extraTerms: "",
   };
-}
-
-function contractStorageKey(id: string) {
-  return `tocala:contract-simulation:${encodeURIComponent(id)}`;
-}
-
-function isDraft(value: unknown): value is Draft {
-  if (!value || typeof value !== "object") return false;
-  const draft = value as Record<string, unknown>;
-  return typeof draft.eventTitle === "string" && typeof draft.eventDate === "string" && typeof draft.startTime === "string" && typeof draft.fee === "string";
-}
-
-function readContractSimulation(id: string): StoredContractSimulation | null {
-  try {
-    const parsed: unknown = JSON.parse(window.localStorage.getItem(contractStorageKey(id)) || "null");
-    if (!parsed || typeof parsed !== "object") return null;
-    const simulation = parsed as Record<string, unknown>;
-    if (simulation.id !== id || typeof simulation.artistId !== "string" || (simulation.status !== "pending" && simulation.status !== "accepted") || !isDraft(simulation.draft)) return null;
-    return parsed as StoredContractSimulation;
-  } catch {
-    return null;
-  }
-}
-
-function saveContractSimulation(simulation: StoredContractSimulation) {
-  window.localStorage.setItem(contractStorageKey(simulation.id), JSON.stringify(simulation));
 }
 
 function formatEventDate(value: string) {
@@ -229,10 +189,11 @@ function CheckOption({ checked, onChange, children, tone = "artist" }: { checked
   </label>;
 }
 
-export function ContractDemoFlow({ artist, isOwnProfile, simulationId }: { artist: Artist; isOwnProfile: boolean; simulationId?: string }) {
+export function ContractDemoFlow({ artist, isOwnProfile, simulationId, requestedRole = "contractor", viewerId }: { artist: Artist; isOwnProfile: boolean; simulationId?: string; requestedRole?: SimulationRole; viewerId?: string }) {
   const [stage, setStage] = useState<Stage>("details");
   const [draft, setDraft] = useState<Draft>(() => initialDraft(artist.estimatedPrice));
   const [activeSimulationId, setActiveSimulationId] = useState<string | null>(simulationId ?? null);
+  const [storedSimulation, setStoredSimulation] = useState<StoredContractSimulation | null>(null);
   const [buyerAccepted, setBuyerAccepted] = useState(false);
   const [artistAccepted, setArtistAccepted] = useState(false);
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
@@ -244,7 +205,7 @@ export function ContractDemoFlow({ artist, isOwnProfile, simulationId }: { artis
   const router = useRouter();
 
   useEffect(() => {
-    if (!simulationId || !isOwnProfile) return;
+    if (!simulationId) return;
     const timeout = window.setTimeout(() => {
       const stored = readContractSimulation(simulationId);
       if (!stored || stored.artistId !== artist.id) {
@@ -253,14 +214,27 @@ export function ContractDemoFlow({ artist, isOwnProfile, simulationId }: { artis
       }
       setDraft(stored.draft);
       setActiveSimulationId(stored.id);
-      setArtistAccepted(stored.status === "accepted");
-      setStage(stored.status === "accepted" ? "escrow" : "artist");
+      setStoredSimulation(stored);
+      setArtistAccepted(stored.status !== "pending_artist");
+      setChangeRequest(stored.changeRequest ?? "");
+      if (stored.status === "pending_artist") setStage("artist");
+      else if (stored.status === "adjustment_requested") setStage("adjustment");
+      else if (stored.status === "awaiting_payment") setStage("payment");
+      else if (stored.status === "awaiting_checkin") setStage("checkin");
+      else if (stored.status === "completed") setStage((requestedRole === "contractor" ? stored.contractorReview : stored.artistReview) ? "complete" : "review");
+      else setStage("complete");
     }, 0);
     return () => window.clearTimeout(timeout);
-  }, [artist.id, isOwnProfile, simulationId, toast]);
+  }, [artist.id, requestedRole, simulationId, toast]);
 
-  const stageIndex = stage === "details" ? 0 : stage === "contract" ? 1 : stage === "sent" || stage === "artist" || stage === "adjustment" ? 2 : stage === "escrow" ? 3 : stage === "checkin" ? 4 : 5;
-  const simulationRole: SimulationRole = stage === "artist" ? "artist" : "contractor";
+  const stageIndex = stage === "details" || stage === "contract" ? 0 : stage === "artist" || stage === "adjustment" ? 1 : stage === "payment" ? 2 : stage === "checkin" ? 3 : 4;
+  const simulationRole: SimulationRole = !simulationId
+    ? "contractor"
+    : stage === "artist"
+      ? "artist"
+      : stage === "adjustment" || stage === "payment"
+        ? "contractor"
+        : requestedRole;
   const isContractorSimulation = simulationRole === "contractor";
   const rolePanelClass = isContractorSimulation ? "border-[#3EA6FF]/35 bg-[#10243A]" : "border-[#BA3BE7]/25 bg-[#222226]";
   const roleAccentTextClass = isContractorSimulation ? "text-[#8DCAFF]" : "text-[#D6A0FF]";
@@ -299,16 +273,19 @@ export function ContractDemoFlow({ artist, isOwnProfile, simulationId }: { artis
   }
 
   async function saveDemoReview() {
+    if (!activeSimulationId) return;
+    const current = readContractSimulation(activeSimulationId);
+    if (!current) {
+      toast("Este contrato fictício não foi encontrado neste navegador.", "error");
+      return;
+    }
+
     try {
-      if (isSupabaseConfigured()) {
+      if (simulationRole === "contractor" && !isOwnProfile && isSupabaseConfigured()) {
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
           toast("Entre na sua conta para compartilhar a avaliação com os outros participantes.", "error");
-          return;
-        }
-        if (user.id === artist.id) {
-          toast("Você não pode enviar uma avaliação para o próprio perfil.", "error");
           return;
         }
         const oldReviews = readStoredDemoReviews().filter((review) => review.artistId === artist.id && /^[0-9a-f-]{36}$/i.test(review.artistId));
@@ -325,66 +302,173 @@ export function ContractDemoFlow({ artist, isOwnProfile, simulationId }: { artis
           return;
         }
         removeStoredDemoReviews(oldReviews.map((review) => review.id));
-      } else {
+      } else if (simulationRole === "contractor" && !isOwnProfile) {
         addDemoReview({ artistId: artist.id, authorName: "Contratante fictício", rating: reviewRating, comment: reviewComment.trim() });
       }
-      addUserNotification(artist.id, { simulationRole: "contractor", title: "Você recebeu uma nova avaliação", detail: `Uma contratação de demonstração avaliou seu perfil com ${reviewRating} ${reviewRating === 1 ? "estrela" : "estrelas"}.` });
+
+      const review = { rating: reviewRating, comment: reviewComment.trim(), createdAt: new Date().toISOString() };
+      const updated: StoredContractSimulation = simulationRole === "contractor"
+        ? { ...current, contractorReview: review, status: current.artistReview ? "reviewed" : "completed" }
+        : { ...current, artistReview: review, status: current.contractorReview ? "reviewed" : "completed" };
+      saveContractSimulation(updated);
+      setStoredSimulation(updated);
     } catch {
       toast("Não foi possível mostrar a avaliação simulada neste navegador.", "error");
       return;
     }
-    router.push(`/perfil?artista=${encodeURIComponent(artist.id)}`);
+    toast("Avaliação fictícia registrada.");
+    router.push("/");
   }
 
-  const canGoBack = stage !== "details";
+  function simulationHref(id: string, role: SimulationRole) {
+    return `/contratos/novo?artista=${encodeURIComponent(artist.id)}&simulacao=${encodeURIComponent(id)}&papel=${role === "artist" ? "artista" : "contratante"}`;
+  }
+
   function simulateProposalSend() {
-    let createdSimulationId: string | null = null;
-    if (isOwnProfile) {
-      createdSimulationId = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      saveContractSimulation({ id: createdSimulationId, artistId: artist.id, draft, status: "pending", createdAt: new Date().toISOString() });
-      setActiveSimulationId(createdSimulationId);
-    }
+    const createdSimulationId = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const simulation: StoredContractSimulation = {
+      id: createdSimulationId,
+      artistId: artist.id,
+      contractorId: viewerId ?? artist.id,
+      draft,
+      status: "pending_artist",
+      createdAt: new Date().toISOString(),
+    };
+    saveContractSimulation(simulation);
+    setStoredSimulation(simulation);
+    setActiveSimulationId(createdSimulationId);
     addUserNotification(artist.id, {
       type: "contract-proposal",
-      simulationRole: "contractor",
-      title: "Você recebeu uma proposta de contrato",
-      detail: `Nova proposta para ${draft.eventTitle} em ${formatEventDate(draft.eventDate)}. Confira os detalhes para aceitar ou enviar uma contraproposta.`,
-      href: createdSimulationId ? `/contratos/novo?artista=${encodeURIComponent(artist.id)}&simulacao=${encodeURIComponent(createdSimulationId)}` : undefined,
-      actionLabel: createdSimulationId ? "Analisar proposta" : undefined,
+      simulationRole: "artist",
+      title: "Novo contrato fictício para analisar",
+      detail: `Você recebeu uma proposta para ${draft.eventTitle} em ${formatEventDate(draft.eventDate)}. Analise os detalhes como artista.`,
+      href: simulationHref(createdSimulationId, "artist"),
+      actionLabel: "Analisar contrato",
     });
-    setStage("sent");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    toast("Contrato fictício gerado. Abra a notificação para analisá-lo como artista.");
+    router.push("/");
   }
 
   function acceptContract() {
-    if (isOwnProfile && activeSimulationId) {
-      const stored = readContractSimulation(activeSimulationId);
-      saveContractSimulation({
-        id: activeSimulationId,
-        artistId: artist.id,
-        draft,
-        status: "accepted",
-        createdAt: stored?.createdAt ?? new Date().toISOString(),
-        acceptedAt: new Date().toISOString(),
-      });
-    }
-    addUserNotification(artist.id, {
+    if (!activeSimulationId) return;
+    const current = readContractSimulation(activeSimulationId);
+    if (!current) return;
+    const updated: StoredContractSimulation = { ...current, draft, status: "awaiting_payment", acceptedAt: new Date().toISOString() };
+    saveContractSimulation(updated);
+    setStoredSimulation(updated);
+    addUserNotification(current.contractorId, {
       type: "contract-accepted",
-      simulationRole: "artist",
-      title: "Contrato simulado aceito",
-      detail: `A proposta para ${draft.eventTitle} foi aceita pelo perfil de ${artist.name}.`,
-      href: isOwnProfile ? "/notificacoes" : undefined,
-      actionLabel: isOwnProfile ? "Ver notificações" : undefined,
+      simulationRole: "contractor",
+      title: "Contrato aceito: pagamento pendente",
+      detail: `${artist.name} aceitou a proposta para ${draft.eventTitle}. Simule o pagamento protegido para continuar.`,
+      href: simulationHref(current.id, "contractor"),
+      actionLabel: "Realizar pagamento",
     });
-    setStage("escrow");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    toast("Aceite registrado. O contratante recebeu a solicitação de pagamento.");
+    router.push("/");
+  }
+
+  function requestAdjustment() {
+    if (!activeSimulationId || !changeRequest.trim()) return;
+    const current = readContractSimulation(activeSimulationId);
+    if (!current) return;
+    const updated: StoredContractSimulation = { ...current, status: "adjustment_requested", changeRequest: changeRequest.trim() };
+    saveContractSimulation(updated);
+    setStoredSimulation(updated);
+    addUserNotification(current.contractorId, {
+      type: "contract-accepted",
+      simulationRole: "contractor",
+      title: "O artista sugeriu um ajuste",
+      detail: `Revise a contraproposta de ${artist.name} para ${draft.eventTitle}.`,
+      href: simulationHref(current.id, "contractor"),
+      actionLabel: "Analisar ajuste",
+    });
+    router.push("/");
+  }
+
+  function acceptAdjustment() {
+    if (!activeSimulationId) return;
+    const current = readContractSimulation(activeSimulationId);
+    if (!current) return;
+    const adjustedDraft = { ...current.draft, extraTerms: [current.draft.extraTerms, `Ajuste simulado aceito: ${current.changeRequest ?? changeRequest}`].filter(Boolean).join("\n") };
+    const updated: StoredContractSimulation = { ...current, draft: adjustedDraft, status: "awaiting_payment", acceptedAt: new Date().toISOString() };
+    saveContractSimulation(updated);
+    setDraft(adjustedDraft);
+    setStoredSimulation(updated);
+    addUserNotification(current.contractorId, {
+      type: "contract-payment",
+      simulationRole: "contractor",
+      title: "Ajuste aceito: pagamento pendente",
+      detail: `O contrato fictício de ${draft.eventTitle} está pronto para o pagamento simulado.`,
+      href: simulationHref(current.id, "contractor"),
+      actionLabel: "Realizar pagamento",
+    });
+    router.push("/");
+  }
+
+  function confirmPayment() {
+    if (!activeSimulationId || !paymentConfirmed) return;
+    const current = readContractSimulation(activeSimulationId);
+    if (!current) return;
+    const updated: StoredContractSimulation = { ...current, status: "awaiting_checkin", paidAt: new Date().toISOString(), contractorCheckedIn: false, artistCheckedIn: false };
+    saveContractSimulation(updated);
+    setStoredSimulation(updated);
+    addUserNotification(current.contractorId, {
+      type: "contract-checkin",
+      simulationRole: "contractor",
+      title: "Pagamento confirmado: faça seu check-in",
+      detail: `O pagamento fictício de ${draft.eventTitle} foi protegido. Confirme a presença como contratante.`,
+      href: simulationHref(current.id, "contractor"),
+      actionLabel: "Check-in do contratante",
+    });
+    addUserNotification(current.artistId, {
+      type: "contract-checkin",
+      simulationRole: "artist",
+      title: "Evento liberado para check-in",
+      detail: `O pagamento fictício de ${draft.eventTitle} foi confirmado. Confirme a presença como artista.`,
+      href: simulationHref(current.id, "artist"),
+      actionLabel: "Check-in do artista",
+    });
+    toast("Pagamento fictício confirmado. Os dois participantes receberam o check-in.");
+    router.push("/");
+  }
+
+  function confirmCheckin() {
+    if (!activeSimulationId || !checkinConfirmed) return;
+    const current = readContractSimulation(activeSimulationId);
+    if (!current) return;
+    const updated: StoredContractSimulation = {
+      ...current,
+      contractorCheckedIn: simulationRole === "contractor" ? true : current.contractorCheckedIn,
+      artistCheckedIn: simulationRole === "artist" ? true : current.artistCheckedIn,
+    };
+    const bothCheckedIn = Boolean(updated.contractorCheckedIn && updated.artistCheckedIn);
+    updated.status = bothCheckedIn ? "completed" : "awaiting_checkin";
+    saveContractSimulation(updated);
+    setStoredSimulation(updated);
+
+    if (bothCheckedIn) {
+      addUserNotification(updated.contractorId, {
+        type: "contract-completed", simulationRole: "contractor", title: "Evento finalizado. Avaliar?", detail: `Os dois check-ins de ${draft.eventTitle} foram confirmados. Avalie a apresentação como contratante.`, href: simulationHref(updated.id, "contractor"), actionLabel: "Avaliar artista",
+      });
+      addUserNotification(updated.artistId, {
+        type: "contract-completed", simulationRole: "artist", title: "Evento finalizado. Avaliar?", detail: `Os dois check-ins de ${draft.eventTitle} foram confirmados. Avalie a experiência como artista.`, href: simulationHref(updated.id, "artist"), actionLabel: "Avaliar contratante",
+      });
+      toast("Evento finalizado. As avaliações foram enviadas aos dois participantes.");
+    } else {
+      const waitingRole: SimulationRole = simulationRole === "contractor" ? "artist" : "contractor";
+      const waitingProfileId = waitingRole === "artist" ? updated.artistId : updated.contractorId;
+      addUserNotification(waitingProfileId, {
+        type: "contract-checkin", simulationRole: waitingRole, title: "Falta o seu check-in", detail: `A outra parte confirmou presença em ${draft.eventTitle}. Confirme também para finalizar o evento.`, href: simulationHref(updated.id, waitingRole), actionLabel: "Confirmar check-in",
+      });
+      toast("Seu check-in foi registrado. Falta a confirmação da outra parte.");
+    }
+    router.push("/");
   }
 
   function goBack() {
-    const previous: Record<Exclude<Stage, "details">, Stage> = {
-      contract: "details", sent: "contract", artist: "sent", adjustment: "artist", escrow: "artist", checkin: "escrow", review: "checkin",
-    };
-    if (canGoBack) setStage(previous[stage as Exclude<Stage, "details">]);
+    if (!simulationId && stage === "contract") setStage("details");
+    else if (simulationId) router.push("/");
     else router.back();
   }
 
@@ -423,7 +507,7 @@ export function ContractDemoFlow({ artist, isOwnProfile, simulationId }: { artis
       </div>
     </header>
     <main className="mx-auto max-w-[760px] px-4 pb-14 pt-6 sm:px-6 sm:pt-9">
-      <ol className="mb-6 grid grid-cols-6 gap-1" aria-label="Etapas da contratação fictícia">
+      <ol className="mb-6 grid grid-cols-5 gap-1" aria-label="Etapas da contratação fictícia">
         {steps.map((label, index) => <li key={label} className={`border-b-2 pb-2 text-center text-[9px] font-medium sm:text-[11px] ${index <= stageIndex ? isContractorSimulation ? "border-[#3EA6FF] text-[#8DCAFF]" : "border-[#BA3BE7] text-[#E4C9FF]" : "border-white/10 text-white/35"}`}>{label}</li>)}
       </ol>
       <div className={`mb-5 rounded-xl border p-3.5 text-xs leading-relaxed ${isContractorSimulation ? "border-[#3EA6FF]/35 bg-[#1565C0]/[0.12] text-[#CBE8FF]" : "border-[#BA3BE7]/30 bg-[#6C1EE7]/[0.10] text-[#E4C9FF]"}`}>
@@ -484,16 +568,7 @@ export function ContractDemoFlow({ artist, isOwnProfile, simulationId }: { artis
           <p>As informações digitadas servem apenas para montar este resumo temporário. Não inclua dados pessoais ou sensíveis; a proposta não é enviada nem gravada no sistema.</p>
         </div>
         <div className="mt-4"><CheckOption tone={simulationRole} checked={buyerAccepted} onChange={setBuyerAccepted}>Li os detalhes e aceito continuar com esta proposta fictícia.</CheckOption></div>
-        <button type="button" disabled={!buyerAccepted} onClick={simulateProposalSend} className={`mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-45 ${primaryActionClass}`}>Aceitar e simular envio ao artista <ArrowRight className="size-4" /></button>
-      </section>}
-
-      {stage === "sent" && <section className={`rounded-2xl border p-6 text-center sm:p-10 ${rolePanelClass}`}>
-        <span className="mx-auto flex size-16 items-center justify-center rounded-2xl border border-emerald-400/25 bg-emerald-400/10 text-emerald-200"><Check className="size-8" /></span>
-        <p className="mt-5 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-200">Envio simulado</p>
-        <h1 className="mt-2 text-2xl font-bold">Proposta preparada para {artist.name}</h1>
-        <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-white/55">{isOwnProfile ? "A proposta já apareceu nas notificações do seu perfil. Você pode abri-la por lá ou continuar agora como artista." : "Em uma versão futura, a proposta seria encaminhada ao artista para aceite ou contraproposta. Por enquanto, você pode simular a resposta aqui."}</p>
-        <div className="mx-auto mt-6 max-w-lg text-left">{summary()}</div>
-        <button type="button" onClick={() => setStage("artist")} className={`mt-6 inline-flex h-12 w-full max-w-lg items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white transition ${primaryActionClass}`}>{isOwnProfile ? "Abrir proposta recebida" : "Simular resposta do artista"} <ArrowRight className="size-4" /></button>
+        <button type="button" disabled={!buyerAccepted} onClick={simulateProposalSend} className={`mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-45 ${primaryActionClass}`}>Gerar contrato e notificar o artista <ArrowRight className="size-4" /></button>
       </section>}
 
       {stage === "artist" && <section className={`rounded-2xl border p-5 sm:p-7 ${rolePanelClass}`}>
@@ -505,7 +580,7 @@ export function ContractDemoFlow({ artist, isOwnProfile, simulationId }: { artis
         <button type="button" disabled={!artistAccepted} onClick={acceptContract} className={`mt-3 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-45 ${primaryActionClass}`}>Aceitar contrato fictício <Check className="size-4" /></button>
         <div className="my-5 border-t border-white/10" />
         <Field label="Ou descreva um ajuste para a proposta"><textarea value={changeRequest} onChange={(event) => setChangeRequest(event.target.value)} maxLength={800} rows={3} wrap="soft" placeholder="Ex.: preciso alterar o horário de chegada para 90 minutos antes" className="min-w-0 w-full resize-y break-words rounded-xl border border-white/10 bg-[#101010]/70 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20 [overflow-wrap:anywhere]" /></Field>
-        <button type="button" disabled={!changeRequest.trim()} onClick={() => setStage("adjustment")} className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-xl border border-white/15 text-sm font-semibold text-white/80 transition hover:border-[#BA3BE7] hover:text-white disabled:cursor-not-allowed disabled:opacity-40">Solicitar ajuste</button>
+        <button type="button" disabled={!changeRequest.trim()} onClick={requestAdjustment} className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-xl border border-white/15 text-sm font-semibold text-white/80 transition hover:border-[#BA3BE7] hover:text-white disabled:cursor-not-allowed disabled:opacity-40">Solicitar ajuste ao contratante</button>
       </section>}
 
       {stage === "adjustment" && <section className={`rounded-2xl border p-5 sm:p-7 ${rolePanelClass}`}>
@@ -514,42 +589,56 @@ export function ContractDemoFlow({ artist, isOwnProfile, simulationId }: { artis
         <p className="mt-2 text-sm text-white/55">Em um fluxo real, o contratante poderia responder ou negociar novamente.</p>
         <blockquote className="mt-5 min-w-0 max-w-full break-words whitespace-pre-wrap rounded-xl border-l-2 border-[#3EA6FF] bg-[#101010]/50 p-4 text-sm leading-relaxed text-white/75 [overflow-wrap:anywhere]">“{changeRequest}”</blockquote>
         <div className="mt-5">{summary()}</div>
-        <button type="button" onClick={() => { update("extraTerms", [draft.extraTerms, `Ajuste simulado aceito: ${changeRequest}`].filter(Boolean).join("\n")); setArtistAccepted(true); setStage("escrow"); }} className={`mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white transition ${primaryActionClass}`}>Simular aceite do ajuste <Check className="size-4" /></button>
+        <button type="button" onClick={acceptAdjustment} className={`mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white transition ${primaryActionClass}`}>Aceitar ajuste e preparar pagamento <Check className="size-4" /></button>
         <button type="button" onClick={() => setStage("details")} className="mt-2 h-11 w-full rounded-xl border border-white/15 text-sm text-white/70 transition hover:bg-white/5">Voltar e alterar proposta</button>
       </section>}
 
-      {stage === "escrow" && <section className={`rounded-2xl border p-5 sm:p-7 ${rolePanelClass}`}>
-        <p className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${roleAccentTextClass}`}>Etapa 4 · Pagamento protegido</p>
+      {stage === "payment" && <section className={`rounded-2xl border p-5 sm:p-7 ${rolePanelClass}`}>
+        <p className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${roleAccentTextClass}`}>Etapa 3 · Pagamento protegido</p>
         <h1 className="mt-2 text-2xl font-bold">Pagamento via Fluxo escrow</h1>
-        <p className="mt-2 text-sm leading-relaxed text-white/55">Depois do aceite do artista, o contratante faria o pagamento ao sistema antes do evento. Futuramente, o Fluxo escrow poderá manter o valor protegido até a conclusão do show.</p>
+        <p className="mt-2 text-sm leading-relaxed text-white/55">O artista aceitou o contrato. Agora você está simulando o contratante pagando ao aplicativo antes do evento.</p>
         <div className="mt-5">{summary()}</div>
         <div className="mt-4 rounded-xl border border-amber-300/20 bg-amber-300/[0.07] p-4 text-sm leading-relaxed text-amber-50/80"><strong>Pagamento fictício.</strong> Nenhuma cobrança será feita e nenhum valor será transferido ou retido nesta demonstração.</div>
         <div className="mt-4"><CheckOption tone={simulationRole} checked={paymentConfirmed} onChange={setPaymentConfirmed}>Confirmo o pagamento simulado de {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(draft.fee))} para continuar.</CheckOption></div>
-        <button type="button" disabled={!paymentConfirmed} onClick={() => setStage("checkin")} className={`mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-45 ${primaryActionClass}`}>Simular pagamento protegido <ArrowRight className="size-4" /></button>
+        <button type="button" disabled={!paymentConfirmed} onClick={confirmPayment} className={`mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-45 ${primaryActionClass}`}>Pagar ao aplicativo e liberar check-ins <ArrowRight className="size-4" /></button>
       </section>}
 
       {stage === "checkin" && <section className={`rounded-2xl border p-5 sm:p-7 ${rolePanelClass}`}>
-        <p className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${roleAccentTextClass}`}>Etapa 5 · Dia do evento</p>
-        <h1 className="mt-2 text-2xl font-bold">Check-in no show</h1>
-        <p className="mt-2 text-sm leading-relaxed text-white/55">Esta tela é apenas demonstrativa. Em uma versão futura, poderia confirmar a chegada do artista no local.</p>
+        <p className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${roleAccentTextClass}`}>Etapa 4 · Dia do evento</p>
+        <h1 className="mt-2 text-2xl font-bold">Check-in do {simulationRole === "contractor" ? "contratante" : "artista"}</h1>
+        <p className="mt-2 text-sm leading-relaxed text-white/55">Os dois participantes precisam confirmar presença. O evento só será finalizado quando ambos fizerem o check-in.</p>
         <div className="mt-5">{summary()}</div>
-        <div className="mt-4"><CheckOption tone={simulationRole} checked={checkinConfirmed} onChange={setCheckinConfirmed}>Confirmo o check-in fictício para continuar à avaliação.</CheckOption></div>
-        <button type="button" disabled={!checkinConfirmed} onClick={() => setStage("review")} className={`mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-45 ${primaryActionClass}`}>Continuar para avaliação <ArrowRight className="size-4" /></button>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          <div className={`rounded-xl border p-3 text-sm ${storedSimulation?.contractorCheckedIn ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-100" : "border-white/10 bg-black/15 text-white/55"}`}><strong className="block text-white/85">Contratante</strong>{storedSimulation?.contractorCheckedIn ? "Check-in confirmado" : "Aguardando confirmação"}</div>
+          <div className={`rounded-xl border p-3 text-sm ${storedSimulation?.artistCheckedIn ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-100" : "border-white/10 bg-black/15 text-white/55"}`}><strong className="block text-white/85">Artista</strong>{storedSimulation?.artistCheckedIn ? "Check-in confirmado" : "Aguardando confirmação"}</div>
+        </div>
+        {((simulationRole === "contractor" && storedSimulation?.contractorCheckedIn) || (simulationRole === "artist" && storedSimulation?.artistCheckedIn))
+          ? <div className="mt-4 rounded-xl border border-emerald-400/25 bg-emerald-400/10 p-4 text-sm text-emerald-100">Seu check-in já foi confirmado. Volte ao início e aguarde a outra parte.</div>
+          : <><div className="mt-4"><CheckOption tone={simulationRole} checked={checkinConfirmed} onChange={setCheckinConfirmed}>Confirmo minha presença como {simulationRole === "contractor" ? "contratante" : "artista"} neste evento fictício.</CheckOption></div>
+            <button type="button" disabled={!checkinConfirmed} onClick={confirmCheckin} className={`mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-45 ${primaryActionClass}`}>Confirmar meu check-in <ArrowRight className="size-4" /></button></>}
       </section>}
 
       {stage === "review" && <section className={`rounded-2xl border p-5 sm:p-7 ${rolePanelClass}`}>
-        <p className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${roleAccentTextClass}`}>Etapa 6 · Avaliação</p>
-        <h1 className="mt-2 text-2xl font-bold">Como foi o show de {artist.name}?</h1>
-        <p className="mt-2 text-sm text-white/55">A avaliação ficará visível apenas nesta simulação, neste navegador.</p>
+        <p className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${roleAccentTextClass}`}>Etapa 5 · Evento finalizado</p>
+        <h1 className="mt-2 text-2xl font-bold">{simulationRole === "contractor" ? `Como foi o show de ${artist.name}?` : "Como foi a experiência com o contratante?"}</h1>
+        <p className="mt-2 text-sm text-white/55">Os dois check-ins foram confirmados. Esta avaliação pertence somente ao fluxo fictício.</p>
         <div className="mt-6 flex items-center justify-center gap-2" role="radiogroup" aria-label="Nota de 1 a 5 estrelas">
           {Array.from({ length: 5 }, (_, index) => {
             const value = index + 1;
-            return <button key={value} type="button" onClick={() => setReviewRating(value)} role="radio" aria-checked={reviewRating === value} aria-label={`${value} ${value === 1 ? "estrela" : "estrelas"}`} className="rounded-lg p-1 text-amber-300 transition hover:scale-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3EA6FF]"><Star className={`size-9 ${value <= reviewRating ? "fill-current" : "fill-transparent"}`} /></button>;
+            return <button key={value} type="button" onClick={() => setReviewRating(value)} role="radio" aria-checked={reviewRating === value} aria-label={`${value} ${value === 1 ? "estrela" : "estrelas"}`} className={`rounded-lg p-1 text-amber-300 transition hover:scale-110 focus-visible:outline focus-visible:outline-2 ${isContractorSimulation ? "focus-visible:outline-[#3EA6FF]" : "focus-visible:outline-[#BA3BE7]"}`}><Star className={`size-9 ${value <= reviewRating ? "fill-current" : "fill-transparent"}`} /></button>;
           })}
         </div>
         <p className="mt-2 text-center text-sm font-semibold text-amber-100">{reviewRating} de 5 estrelas</p>
-        <div className="mt-6"><Field label="Comentário (opcional)"><textarea value={reviewComment} onChange={(event) => setReviewComment(event.target.value)} rows={4} maxLength={800} wrap="soft" placeholder="Conte o que achou da apresentação" className="min-w-0 w-full resize-y break-words rounded-xl border border-white/10 bg-[#101010]/70 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#3EA6FF] focus:ring-2 focus:ring-[#3EA6FF]/20 [overflow-wrap:anywhere]" /></Field></div>
-        <button type="button" onClick={saveDemoReview} className={`mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white transition ${primaryActionClass}`}>Enviar avaliação simulada e abrir perfil <ArrowRight className="size-4" /></button>
+        <div className="mt-6"><Field label="Comentário (opcional)"><textarea value={reviewComment} onChange={(event) => setReviewComment(event.target.value)} rows={4} maxLength={800} wrap="soft" placeholder="Conte como foi a experiência" className={`min-w-0 w-full resize-y break-words rounded-xl border border-white/10 bg-[#101010]/70 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-white/30 [overflow-wrap:anywhere] ${isContractorSimulation ? "focus:border-[#3EA6FF] focus:ring-2 focus:ring-[#3EA6FF]/20" : "focus:border-[#BA3BE7] focus:ring-2 focus:ring-[#BA3BE7]/20"}`} /></Field></div>
+        <button type="button" onClick={saveDemoReview} className={`mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white transition ${primaryActionClass}`}>Enviar avaliação fictícia <ArrowRight className="size-4" /></button>
+      </section>}
+
+      {stage === "complete" && <section className={`rounded-2xl border p-6 text-center sm:p-10 ${rolePanelClass}`}>
+        <span className="mx-auto flex size-16 items-center justify-center rounded-2xl border border-emerald-400/25 bg-emerald-400/10 text-emerald-200"><Check className="size-8" /></span>
+        <p className="mt-5 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-200">Fluxo concluído</p>
+        <h1 className="mt-2 text-2xl font-bold">Esta participação já foi avaliada</h1>
+        <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-white/55">O contrato, o pagamento, os dois check-ins e as avaliações ficaram registrados nesta simulação.</p>
+        <button type="button" onClick={() => router.push("/")} className={`mt-6 inline-flex h-12 w-full max-w-sm items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white transition ${primaryActionClass}`}>Voltar para o início <ArrowRight className="size-4" /></button>
       </section>}
     </main>
   </div>;

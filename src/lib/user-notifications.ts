@@ -11,17 +11,20 @@ export type UserNotification = {
   hidden: boolean;
 };
 
-export type UserNotificationType = "general" | "contract-proposal" | "contract-accepted";
+export type UserNotificationType = "general" | "contract-proposal" | "contract-accepted" | "contract-payment" | "contract-checkin" | "contract-completed";
 
 export const USER_NOTIFICATIONS_CHANGE_EVENT = "tocala:user-notifications-change";
 export const USER_NOTIFICATION_SOUNDS: Record<UserNotificationType, string> = {
   general: "/sounds/universfield-new-notification-010-352755.mp3",
   "contract-proposal": "/sounds/universfield-positive-notification-351299.mp3",
   "contract-accepted": "/sounds/universfield-positive-notification-351299.mp3",
+  "contract-payment": "/sounds/universfield-positive-notification-351299.mp3",
+  "contract-checkin": "/sounds/universfield-positive-notification-351299.mp3",
+  "contract-completed": "/sounds/universfield-positive-notification-351299.mp3",
 };
 
 export function isContractorSimulation(notification: UserNotification) {
-  return notification.simulationRole === "contractor" || notification.type === "contract-proposal";
+  return notification.simulationRole === "contractor";
 }
 
 export function playUserNotificationSound(type: UserNotificationType = "general") {
