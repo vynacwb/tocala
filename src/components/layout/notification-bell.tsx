@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Bell, Check, CheckCircle2, FileSignature, MoreVertical, Settings } from "lucide-react";
-import { getUserNotifications, isContractorSimulation, updateUserNotifications, USER_NOTIFICATIONS_CHANGE_EVENT, type UserNotification } from "@/lib/user-notifications";
+import { isContractorSimulation, loadUserNotifications, markAllUserNotificationsRead, patchUserNotification, playUserNotificationSound, USER_NOTIFICATIONS_CHANGE_EVENT, type UserNotification, type UserNotificationType } from "@/lib/user-notifications";
+import { createClient } from "@/utils/supabase/client";
+import { isSupabaseConfigured } from "@/utils/supabase/config";
 
 function relativeTime(value: string) {
   const minutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60000));
@@ -23,15 +25,33 @@ export function NotificationBell({ profileId, variant = "desktop" }: { profileId
   const unreadCount = visibleNotifications.filter((item) => !item.read).length;
 
   useEffect(() => {
-    const refresh = () => setNotifications(getUserNotifications(profileId));
+    const refresh = () => { void loadUserNotifications(profileId).then(setNotifications); };
     refresh();
     window.addEventListener("storage", refresh);
     window.addEventListener(USER_NOTIFICATIONS_CHANGE_EVENT, refresh);
+    const supabase = isSupabaseConfigured() ? createClient() : null;
+    const channel = supabase?.channel(`notifications-bell-${profileId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "user_notifications", filter: `recipient_id=eq.${profileId}` }, (payload) => {
+        refresh();
+        if (payload.eventType === "INSERT") playUserNotificationSound((payload.new.type as UserNotificationType | undefined) ?? "general");
+      })
+      .subscribe();
     return () => {
       window.removeEventListener("storage", refresh);
       window.removeEventListener(USER_NOTIFICATIONS_CHANGE_EVENT, refresh);
+      if (supabase && channel) void supabase.removeChannel(channel);
     };
   }, [profileId]);
+
+  function patchNotification(id: string, changes: Partial<Pick<UserNotification, "read" | "hidden">>) {
+    setNotifications((items) => items.map((item) => item.id === id ? { ...item, ...changes } : item));
+    void patchUserNotification(profileId, id, changes);
+  }
+
+  function markAllRead() {
+    setNotifications((items) => items.map((item) => ({ ...item, read: true })));
+    void markAllUserNotificationsRead(profileId);
+  }
 
   useEffect(() => {
     function closeOutside(event: MouseEvent) {
@@ -64,7 +84,7 @@ export function NotificationBell({ profileId, variant = "desktop" }: { profileId
       <header className="flex items-center justify-between border-b border-white/10 px-4 py-4 sm:px-5">
         <div><h2 className="text-base font-semibold">Notificações</h2><p className="mt-0.5 text-xs text-white/45">{unreadCount ? `${unreadCount} não lidas` : "Tudo em dia"}</p></div>
         <div className="flex items-center gap-1">
-          <button type="button" onClick={() => setNotifications(updateUserNotifications(profileId, (items) => items.map((item) => ({ ...item, read: true }))))} aria-label="Marcar todas como lidas" title="Marcar todas como lidas" className="tap-target flex items-center justify-center rounded-xl text-white/55 transition-all duration-200 hover:bg-white/5 hover:text-[#D6A0FF] active:scale-95"><Check className="size-4" /></button>
+          <button type="button" onClick={markAllRead} aria-label="Marcar todas como lidas" title="Marcar todas como lidas" className="tap-target flex items-center justify-center rounded-xl text-white/55 transition-all duration-200 hover:bg-white/5 hover:text-[#D6A0FF] active:scale-95"><Check className="size-4" /></button>
           <Link href="/notificacoes" onClick={() => setOpen(false)} aria-label="Configurações de notificações" className="tap-target flex items-center justify-center rounded-xl text-white/55 transition-all duration-200 hover:bg-white/5 hover:text-[#D6A0FF] active:scale-95"><Settings className="size-4" /></Link>
         </div>
       </header>
@@ -72,12 +92,12 @@ export function NotificationBell({ profileId, variant = "desktop" }: { profileId
         <p className="px-4 pb-2 pt-3 text-xs font-semibold text-white/45 sm:px-5">Recentes</p>
         {visibleNotifications.map((item) => <article key={item.id} className={`group flex gap-3 border-l-2 px-4 py-3 transition sm:px-5 ${isContractorSimulation(item) ? "border-[#3EA6FF] bg-[#1565C0]/[0.08] hover:bg-[#1565C0]/[0.13]" : "border-transparent hover:bg-white/[0.035]"} ${item.read ? "opacity-65" : ""}`}>
           <span className={`flex size-11 shrink-0 items-center justify-center rounded-full ${isContractorSimulation(item) ? "bg-[#1565C0]/25 text-[#8DCAFF]" : "bg-[#6C1EE7]/25 text-[#E4C9FF]"}`}>{item.type === "contract-proposal" ? <FileSignature className="size-5" /> : item.type === "contract-accepted" ? <CheckCircle2 className="size-5" /> : <Bell className="size-5" />}</span>
-          {item.href ? <Link href={item.href} onClick={() => { setNotifications(updateUserNotifications(profileId, (items) => items.map((entry) => entry.id === item.id ? { ...entry, read: true } : entry))); setOpen(false); }} className="min-h-11 min-w-0 flex-1 rounded-lg text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7]">
+          {item.href ? <Link href={item.href} onClick={() => { patchNotification(item.id, { read: true }); setOpen(false); }} className="min-h-11 min-w-0 flex-1 rounded-lg text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7]">
             {isContractorSimulation(item) && <span className="mb-1 inline-flex rounded-full border border-[#3EA6FF]/35 bg-[#1565C0]/20 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-[#8DCAFF]">Simulação do contratante</span>}<p className="text-sm leading-snug text-white/90">{item.title}</p><p className="mt-1 text-xs leading-relaxed text-white/55">{item.detail}</p><p className="mt-1.5 text-[11px] text-white/40">{relativeTime(item.createdAt)}{item.actionLabel ? ` · ${item.actionLabel}` : ""}</p>
-          </Link> : <button type="button" onClick={() => setNotifications(updateUserNotifications(profileId, (items) => items.map((entry) => entry.id === item.id ? { ...entry, read: true } : entry)))} className="min-h-11 min-w-0 flex-1 rounded-lg text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7]">
+          </Link> : <button type="button" onClick={() => patchNotification(item.id, { read: true })} className="min-h-11 min-w-0 flex-1 rounded-lg text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BA3BE7]">
             {isContractorSimulation(item) && <span className="mb-1 inline-flex rounded-full border border-[#3EA6FF]/35 bg-[#1565C0]/20 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-[#8DCAFF]">Simulação do contratante</span>}<p className="text-sm leading-snug text-white/90">{item.title}</p><p className="mt-1 text-xs leading-relaxed text-white/55">{item.detail}</p><p className="mt-1.5 text-[11px] text-white/40">{relativeTime(item.createdAt)}</p>
           </button>}
-          <div className="flex shrink-0 flex-col items-center gap-1"><button type="button" onClick={() => setNotifications(updateUserNotifications(profileId, (items) => items.map((entry) => entry.id === item.id ? { ...entry, hidden: true } : entry)))} aria-label="Ocultar notificação" className="tap-target flex items-center justify-center rounded-full text-white/45 opacity-100 transition-all duration-200 hover:bg-white/10 hover:text-white active:scale-95 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"><MoreVertical className="size-4" /></button>{!item.read && <span className="size-2 rounded-full bg-[#3EA6FF]" aria-label="Não lida" />}</div>
+          <div className="flex shrink-0 flex-col items-center gap-1"><button type="button" onClick={() => patchNotification(item.id, { hidden: true })} aria-label="Ocultar notificação" className="tap-target flex items-center justify-center rounded-full text-white/45 opacity-100 transition-all duration-200 hover:bg-white/10 hover:text-white active:scale-95 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"><MoreVertical className="size-4" /></button>{!item.read && <span className="size-2 rounded-full bg-[#3EA6FF]" aria-label="Não lida" />}</div>
         </article>)}
         {visibleNotifications.length === 0 && <p className="px-5 py-10 text-center text-sm text-white/50">Você não tem notificações por enquanto.</p>}
       </div>

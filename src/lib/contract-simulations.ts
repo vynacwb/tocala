@@ -47,6 +47,64 @@ export type StoredContractSimulation = {
   artistReview?: ContractSimulationReview;
 };
 
+export type SimulatedContractRow = {
+  id: string;
+  artist_id: string;
+  contractor_id: string;
+  artist_name: string;
+  artist_genre: string;
+  draft: ContractDraft;
+  status: ContractSimulationStatus;
+  change_request: string | null;
+  contractor_checked_in: boolean;
+  artist_checked_in: boolean;
+  contractor_review: ContractSimulationReview | null;
+  artist_review: ContractSimulationReview | null;
+  accepted_at: string | null;
+  paid_at: string | null;
+  created_at: string;
+};
+
+export function contractFromDatabase(row: SimulatedContractRow): StoredContractSimulation {
+  return {
+    id: row.id,
+    artistId: row.artist_id,
+    contractorId: row.contractor_id,
+    artistName: row.artist_name,
+    artistGenre: row.artist_genre,
+    draft: row.draft,
+    status: row.status,
+    changeRequest: row.change_request ?? undefined,
+    contractorCheckedIn: row.contractor_checked_in,
+    artistCheckedIn: row.artist_checked_in,
+    contractorReview: row.contractor_review ?? undefined,
+    artistReview: row.artist_review ?? undefined,
+    acceptedAt: row.accepted_at ?? undefined,
+    paidAt: row.paid_at ?? undefined,
+    createdAt: row.created_at,
+  };
+}
+
+export function contractToDatabase(simulation: StoredContractSimulation) {
+  return {
+    id: simulation.id,
+    artist_id: simulation.artistId,
+    contractor_id: simulation.contractorId,
+    artist_name: simulation.artistName ?? "",
+    artist_genre: simulation.artistGenre ?? "",
+    draft: simulation.draft,
+    status: simulation.status,
+    change_request: simulation.changeRequest ?? null,
+    contractor_checked_in: simulation.contractorCheckedIn ?? false,
+    artist_checked_in: simulation.artistCheckedIn ?? false,
+    contractor_review: simulation.contractorReview ?? null,
+    artist_review: simulation.artistReview ?? null,
+    accepted_at: simulation.acceptedAt ?? null,
+    paid_at: simulation.paidAt ?? null,
+    created_at: simulation.createdAt,
+  };
+}
+
 const CONTRACT_STORAGE_PREFIX = "tocala:contract-simulation:";
 export const CONTRACT_SIMULATIONS_CHANGE_EVENT = "tocala:contract-simulations-change";
 

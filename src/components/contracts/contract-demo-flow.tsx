@@ -12,12 +12,13 @@ import { Brand } from "@/components/layout/brand";
 import { useToast } from "@/components/providers/app-providers";
 import { dateKey } from "@/lib/availability";
 import { RankingMedal } from "@/components/ranking/ranking-medal";
-import { readContractSimulation, saveContractSimulation, type ContractDraft as Draft, type ContractSimulationRole as SimulationRole, type StoredContractSimulation } from "@/lib/contract-simulations";
+import { contractFromDatabase, contractToDatabase, readContractSimulation, saveContractSimulation, type ContractDraft as Draft, type ContractSimulationRole as SimulationRole, type SimulatedContractRow, type StoredContractSimulation } from "@/lib/contract-simulations";
 
 type Artist = { id: string; name: string; genre: string; imageUrl: string; rankingPosition?: number; estimatedPrice?: number | null; acceptsDifferentProposals?: boolean };
 type Stage = "details" | "contract" | "artist" | "adjustment" | "payment" | "checkin" | "review" | "complete";
 
 const steps = ["Proposta", "Artista", "Pagamento", "Check-in", "Finalização"];
+const simulationSelect = "id, artist_id, contractor_id, artist_name, artist_genre, draft, status, change_request, contractor_checked_in, artist_checked_in, contractor_review, artist_review, accepted_at, paid_at, created_at";
 const inputClass = "h-12 w-full rounded-xl border border-white/10 bg-[#101010]/70 px-3.5 text-base text-white outline-none transition-all duration-200 placeholder:text-white/30 focus:border-[#3EA6FF] focus:ring-2 focus:ring-[#3EA6FF]/20 sm:text-sm";
 
 function initialDraft(estimatedPrice?: number | null): Draft {
@@ -55,7 +56,6 @@ function fromBrazilianDate(value: string) {
 }
 
 function DateField({ value, onChange, min }: { value: string; onChange: (value: string) => void; min: string }) {
-  const [mode, setMode] = useState<"calendar" | "typing">("calendar");
   const [typedDate, setTypedDate] = useState(() => toBrazilianDate(value));
 
   function updateTypedDate(rawValue: string) {
@@ -67,21 +67,14 @@ function DateField({ value, onChange, min }: { value: string; onChange: (value: 
 
   return <div>
     <span className="mb-2 block text-sm font-medium text-white/80">Dia do evento</span>
-    {mode === "calendar" ? <input type="date" required min={min} value={value} onChange={(event) => onChange(event.target.value)} onClick={(event) => event.currentTarget.showPicker?.()} aria-label="Dia do evento" className={`${inputClass} cursor-pointer`} /> : <input type="text" required inputMode="numeric" autoComplete="off" maxLength={10} pattern="[0-9]{2}/[0-9]{2}/[0-9]{4}" placeholder="DD/MM/AAAA" value={typedDate} onChange={(event) => updateTypedDate(event.target.value)} aria-label="Dia do evento no formato dia, mês e ano" className={inputClass} />}
-    {mode === "typing" && <p className="mt-1.5 text-xs text-white/40">Digite a data como dia/mês/ano.</p>}
-    <div className="mt-2">
-      <button type="button" onClick={() => { if (mode === "calendar") { setTypedDate(toBrazilianDate(value)); setMode("typing"); } else setMode("calendar"); }} aria-pressed={mode === "typing"} className="tap-target rounded-xl px-3 text-xs font-medium text-white/60 transition-all duration-200 hover:bg-white/5 hover:text-white">{mode === "calendar" ? "Digitar data" : "Usar calendário"}</button>
-    </div>
+    <input type="text" required inputMode="numeric" autoComplete="off" maxLength={10} pattern="[0-9]{2}/[0-9]{2}/[0-9]{4}" placeholder="DD/MM/AAAA" value={typedDate} onChange={(event) => updateTypedDate(event.target.value)} aria-label="Dia do evento no formato dia, mês e ano" className={`${inputClass} hidden sm:block`} />
+    <input type="date" required min={min} value={value} onChange={(event) => { onChange(event.target.value); setTypedDate(toBrazilianDate(event.target.value)); }} onClick={(event) => event.currentTarget.showPicker?.()} aria-label="Dia do evento" className={`${inputClass} cursor-pointer sm:hidden`} />
+    <p className="mt-1.5 hidden text-xs text-white/40 sm:block">Digite a data como dia/mês/ano.</p>
   </div>;
 }
 
 function TimeField({ label, value, onChange, required = false }: { label: string; value: string; onChange: (value: string) => void; required?: boolean }) {
-  const [mode, setMode] = useState<"clock" | "typing">("clock");
-  const [clockOpen, setClockOpen] = useState(false);
-  const [selecting, setSelecting] = useState<"hour" | "minute">("hour");
   const [typedTime, setTypedTime] = useState(value);
-  const [selectedHour, setSelectedHour] = useState(value ? Number(value.slice(0, 2)) : 19);
-  const [selectedMinute, setSelectedMinute] = useState(value ? Number(value.slice(3, 5)) : 0);
 
   function updateTypedTime(rawValue: string) {
     const digits = rawValue.replace(/\D/g, "").slice(0, 4);
@@ -103,75 +96,11 @@ function TimeField({ label, value, onChange, required = false }: { label: string
     }
   }
 
-  function chooseHour(hour: number) {
-    setSelectedHour(hour);
-    setSelectedMinute(0);
-    setSelecting("minute");
-  }
-
-  function chooseMinute(minute: number) {
-    const formatted = `${String(selectedHour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-    setSelectedMinute(minute);
-    setTypedTime(formatted);
-    onChange(formatted);
-    setClockOpen(false);
-    setSelecting("hour");
-  }
-
-  function chooseMinuteFromDial(event: React.MouseEvent<HTMLDivElement>) {
-    if (selecting !== "minute") return;
-    const bounds = event.currentTarget.getBoundingClientRect();
-    const deltaX = event.clientX - (bounds.left + bounds.width / 2);
-    const deltaY = event.clientY - (bounds.top + bounds.height / 2);
-    const degrees = (Math.atan2(deltaY, deltaX) * 180 / Math.PI + 450) % 360;
-    chooseMinute(Math.round(degrees / 6) % 60);
-  }
-
-  function openClock() {
-    if (value) {
-      setSelectedHour(Number(value.slice(0, 2)));
-    }
-    setSelectedMinute(0);
-    setMode("clock");
-    setClockOpen(true);
-    setSelecting("hour");
-  }
-
-  const dialPosition = (index: number, radius: number) => {
-    const angle = (index * 30 - 90) * (Math.PI / 180);
-    return { left: `calc(50% + ${Math.round(Math.cos(angle) * radius)}px)`, top: `calc(50% + ${Math.round(Math.sin(angle) * radius)}px)` };
-  };
-  const handAngle = selecting === "hour" ? (selectedHour % 12) * 30 : selectedMinute * 6;
-  const handLength = selecting === "hour" && selectedHour >= 12 ? 58 : 98;
-
   return <div>
     <span className="mb-2 block text-sm font-medium text-white/80">{label}</span>
-    <div>
-      <input type="text" readOnly={mode === "clock"} required={required} pattern={mode === "typing" ? "(?:[01][0-9]|2[0-3]):[0-5][0-9]" : undefined} value={mode === "clock" ? value : typedTime} onChange={(event) => updateTypedTime(event.target.value)} onBlur={mode === "typing" ? completeTypedHour : undefined} onClick={mode === "clock" ? openClock : undefined} placeholder="HH:MM" inputMode={mode === "typing" ? "numeric" : undefined} aria-label={label} aria-expanded={mode === "clock" ? clockOpen : undefined} className={`${inputClass} ${mode === "clock" ? "cursor-pointer" : ""}`} />
-    </div>
-    <div className="mt-2 flex items-center gap-2">
-      <button type="button" onClick={() => { if (mode === "clock") { setMode("typing"); setClockOpen(false); setTypedTime(value); } else { setMode("clock"); setSelectedHour(value ? Number(value.slice(0, 2)) : 19); setSelectedMinute(0); } }} aria-pressed={mode === "typing"} className="tap-target rounded-xl px-3 text-xs font-medium text-white/60 transition-all duration-200 hover:bg-white/5 hover:text-white">{mode === "clock" ? "Digitar horário" : "Usar relógio"}</button>
-      {mode === "typing" && <span className="self-center text-xs text-white/40">Digite 19 para completar 19:00.</span>}
-    </div>
-    {clockOpen && mode === "clock" && <div className="relative z-20 mt-2 w-full max-w-[360px] overflow-hidden rounded-2xl border border-white/10 bg-[#1A1A1D] p-3 shadow-2xl sm:p-5">
-      <div className="mb-5 flex items-center justify-between gap-3">
-        <div>
-          <p className="text-xs text-white/50">{selecting === "hour" ? "Escolha a hora" : "Escolha os minutos"}</p>
-          <div className="mt-2 flex items-center gap-1.5 font-semibold tabular-nums">
-            <button type="button" onClick={() => setSelecting("hour")} aria-label="Selecionar hora" aria-pressed={selecting === "hour"} className={`tap-target rounded-lg px-2.5 text-2xl transition-all duration-200 ${selecting === "hour" ? "bg-[#1565C0] text-white ring-2 ring-[#3EA6FF]/60" : "bg-white/[0.06] text-white/70 hover:bg-white/10"}`}>{String(selectedHour).padStart(2, "0")}</button>
-            <span className="text-2xl text-white/60">:</span>
-            <button type="button" onClick={() => setSelecting("minute")} aria-label="Selecionar minutos" aria-pressed={selecting === "minute"} className={`tap-target rounded-lg px-2.5 text-2xl transition-all duration-200 ${selecting === "minute" ? "bg-[#1565C0] text-white ring-2 ring-[#3EA6FF]/60" : "bg-white/[0.06] text-white/70 hover:bg-white/10"}`}>{String(selectedMinute).padStart(2, "0")}</button>
-          </div>
-        </div>
-        <button type="button" onClick={() => setClockOpen(false)} className="tap-target rounded-xl px-3 text-xs font-medium text-white/60 transition-all duration-200 hover:bg-white/5 hover:text-white">Fechar</button>
-      </div>
-      <div onClick={chooseMinuteFromDial} className={`relative mx-auto size-[248px] touch-manipulation rounded-full bg-[#29292D] sm:size-[280px] ${selecting === "minute" ? "cursor-crosshair" : ""}`} aria-label={selecting === "hour" ? "Mostrador de horas: números externos de 0 a 11 e internos de 12 a 23" : "Mostrador de minutos: toque para escolher minutos exatos"}>
-        {selecting === "hour" ? <>{Array.from({ length: 12 }, (_, index) => <button key={`outer-${index}`} type="button" onClick={() => chooseHour(index)} style={dialPosition(index, 98)} className={`absolute z-10 flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-xs transition-all duration-200 before:absolute before:-inset-1.5 before:content-[''] sm:size-9 ${selectedHour === index ? "bg-[#1565C0] text-white ring-2 ring-[#8DCAFF]/60" : "text-white/85 hover:bg-white/10"}`}>{index}</button>)}{Array.from({ length: 12 }, (_, index) => { const hour = index + 12; return <button key={`inner-${hour}`} type="button" onClick={() => chooseHour(hour)} style={dialPosition(index, 58)} className={`absolute z-10 flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-xs transition-all duration-200 before:absolute before:-inset-1.5 before:content-[''] sm:size-9 ${selectedHour === hour ? "bg-[#1565C0] text-white ring-2 ring-[#8DCAFF]/60" : "text-white/70 hover:bg-white/10"}`}>{hour}</button>; })}</> : Array.from({ length: 12 }, (_, index) => { const minute = index * 5; return <button key={`minute-${minute}`} type="button" onClick={(event) => { event.stopPropagation(); chooseMinute(minute); }} style={dialPosition(index, 98)} aria-label={`${String(minute).padStart(2, "0")} minutos`} className={`absolute z-10 flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-xs transition-all duration-200 before:absolute before:-inset-1.5 before:content-[''] sm:size-9 ${selectedMinute === minute ? "bg-[#1565C0] text-white ring-2 ring-[#8DCAFF]/60" : "text-white/85 hover:bg-white/10"}`}>{String(minute).padStart(2, "0")}</button>; })}
-        <span aria-hidden="true" className="absolute z-[1] w-0.5 rounded-full bg-[#3EA6FF]" style={{ left: "calc(50% - 1px)", top: `calc(50% - ${handLength}px)`, height: `${handLength}px`, transform: `rotate(${handAngle}deg)`, transformOrigin: "50% 100%" }} />
-        <span className="absolute left-1/2 top-1/2 z-[2] size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#3EA6FF] shadow-[0_0_10px_#3EA6FF]" />
-      </div>
-      {selecting === "minute" && <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-white/45"><button type="button" onClick={() => setSelecting("hour")} className="tap-target rounded-lg px-2 text-[#8DCAFF] transition-colors duration-200 hover:bg-white/5">Voltar para a hora</button><span className="min-w-0 flex-1 text-right">Toque no mostrador para escolher o minuto exato</span></div>}
-    </div>}
+    <input type="text" required={required} pattern="(?:[01][0-9]|2[0-3]):[0-5][0-9]" value={typedTime} onChange={(event) => updateTypedTime(event.target.value)} onBlur={completeTypedHour} placeholder="HH:MM" inputMode="numeric" aria-label={label} className={`${inputClass} hidden sm:block`} />
+    <input type="time" required={required} value={value} onChange={(event) => { onChange(event.target.value); setTypedTime(event.target.value); }} onClick={(event) => event.currentTarget.showPicker?.()} aria-label={label} className={`${inputClass} cursor-pointer sm:hidden`} />
+    <p className="mt-1.5 hidden text-xs text-white/40 sm:block">Digite 19 para completar 19:00.</p>
   </div>;
 }
 
@@ -189,7 +118,7 @@ function CheckOption({ checked, onChange, children, tone = "artist" }: { checked
   </label>;
 }
 
-export function ContractDemoFlow({ artist, isOwnProfile, simulationId, requestedRole = "contractor", viewerId }: { artist: Artist; isOwnProfile: boolean; simulationId?: string; requestedRole?: SimulationRole; viewerId?: string }) {
+export function ContractDemoFlow({ artist, isOwnProfile, simulationId, requestedRole = "contractor", viewerId, initialSimulation }: { artist: Artist; isOwnProfile: boolean; simulationId?: string; requestedRole?: SimulationRole; viewerId?: string; initialSimulation?: StoredContractSimulation }) {
   const [stage, setStage] = useState<Stage>("details");
   const [draft, setDraft] = useState<Draft>(() => initialDraft(artist.estimatedPrice));
   const [activeSimulationId, setActiveSimulationId] = useState<string | null>(simulationId ?? null);
@@ -207,11 +136,12 @@ export function ContractDemoFlow({ artist, isOwnProfile, simulationId, requested
   useEffect(() => {
     if (!simulationId) return;
     const timeout = window.setTimeout(() => {
-      const stored = readContractSimulation(simulationId);
+      const stored = initialSimulation ?? readContractSimulation(simulationId);
       if (!stored || stored.artistId !== artist.id) {
-        toast("Esta proposta simulada não foi encontrada neste navegador.", "error");
+        toast("Esta proposta simulada não foi encontrada ou não pertence à sua conta.", "error");
         return;
       }
+      saveContractSimulation(stored);
       setDraft(stored.draft);
       setActiveSimulationId(stored.id);
       setStoredSimulation(stored);
@@ -225,7 +155,7 @@ export function ContractDemoFlow({ artist, isOwnProfile, simulationId, requested
       else setStage("complete");
     }, 0);
     return () => window.clearTimeout(timeout);
-  }, [artist.id, requestedRole, simulationId, toast]);
+  }, [artist.id, initialSimulation, requestedRole, simulationId, toast]);
 
   const stageIndex = stage === "details" || stage === "contract" ? 0 : stage === "artist" || stage === "adjustment" ? 1 : stage === "payment" ? 2 : stage === "checkin" ? 3 : 4;
   const simulationRole: SimulationRole = !simulationId
@@ -243,6 +173,43 @@ export function ContractDemoFlow({ artist, isOwnProfile, simulationId, requested
 
   function update<K extends keyof Draft>(key: K, value: Draft[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
+  }
+
+  function currentSimulation() {
+    return storedSimulation ?? (activeSimulationId ? readContractSimulation(activeSimulationId) : null);
+  }
+
+  async function persistSimulation(simulation: StoredContractSimulation, operation: "insert" | "update") {
+    saveContractSimulation(simulation);
+    setStoredSimulation(simulation);
+    if (!isSupabaseConfigured()) return true;
+    if (!viewerId) {
+      toast("Entre na sua conta para compartilhar este contrato com o outro participante.", "error");
+      return false;
+    }
+
+    const supabase = createClient();
+    const payload = contractToDatabase(simulation);
+    const { id: _id, artist_id: _artistId, contractor_id: _contractorId, artist_name: _artistName, artist_genre: _artistGenre, created_at: _createdAt, ...updates } = payload;
+    void _id; void _artistId; void _contractorId; void _artistName; void _artistGenre; void _createdAt;
+    const { error } = operation === "insert"
+      ? await supabase.from("simulated_contracts").insert(payload)
+      : await supabase.from("simulated_contracts").update(updates).eq("id", simulation.id);
+    if (!error) return true;
+
+    console.error("Falha ao sincronizar contrato fictício:", { code: error.code, message: error.message, details: error.details, hint: error.hint });
+    toast(error.code === "42P01" || error.code === "PGRST205"
+      ? "A estrutura de contratos ainda não existe no Supabase. Execute contract_notifications_migration.sql e tente novamente."
+      : "Não foi possível compartilhar o contrato com o outro participante.", "error");
+    return false;
+  }
+
+  function canActAs(role: SimulationRole, simulation: StoredContractSimulation) {
+    if (!isSupabaseConfigured()) return true;
+    const expectedProfileId = role === "artist" ? simulation.artistId : simulation.contractorId;
+    if (viewerId === expectedProfileId) return true;
+    toast(`Somente ${role === "artist" ? "o artista" : "o contratante"} pode concluir esta etapa.`, "error");
+    return false;
   }
 
   function submitDetails(event: FormEvent<HTMLFormElement>) {
@@ -274,11 +241,12 @@ export function ContractDemoFlow({ artist, isOwnProfile, simulationId, requested
 
   async function saveDemoReview() {
     if (!activeSimulationId) return;
-    const current = readContractSimulation(activeSimulationId);
+    const current = currentSimulation();
     if (!current) {
-      toast("Este contrato fictício não foi encontrado neste navegador.", "error");
+      toast("Este contrato fictício não foi encontrado.", "error");
       return;
     }
+    if (!canActAs(simulationRole, current)) return;
 
     try {
       if (simulationRole === "contractor" && !isOwnProfile && isSupabaseConfigured()) {
@@ -307,11 +275,31 @@ export function ContractDemoFlow({ artist, isOwnProfile, simulationId, requested
       }
 
       const review = { rating: reviewRating, comment: reviewComment.trim(), createdAt: new Date().toISOString() };
-      const updated: StoredContractSimulation = simulationRole === "contractor"
+      let updated: StoredContractSimulation = simulationRole === "contractor"
         ? { ...current, contractorReview: review, status: current.artistReview ? "reviewed" : "completed" }
         : { ...current, artistReview: review, status: current.contractorReview ? "reviewed" : "completed" };
-      saveContractSimulation(updated);
-      setStoredSimulation(updated);
+      if (isSupabaseConfigured()) {
+        const reviewColumn = simulationRole === "contractor" ? "contractor_review" : "artist_review";
+        const supabase = createClient();
+        const { data, error } = await supabase.from("simulated_contracts")
+          .update({ [reviewColumn]: review })
+          .eq("id", current.id)
+          .select(simulationSelect)
+          .single();
+        if (error || !data) throw error ?? new Error("Review update returned no data");
+        updated = contractFromDatabase(data as SimulatedContractRow);
+        if (updated.contractorReview && updated.artistReview && updated.status !== "reviewed") {
+          const { data: reviewed, error: reviewStatusError } = await supabase.from("simulated_contracts")
+            .update({ status: "reviewed" })
+            .eq("id", current.id)
+            .select(simulationSelect)
+            .single();
+          if (reviewStatusError || !reviewed) throw reviewStatusError ?? new Error("Review status update returned no data");
+          updated = contractFromDatabase(reviewed as SimulatedContractRow);
+        }
+        saveContractSimulation(updated);
+        setStoredSimulation(updated);
+      } else if (!await persistSimulation(updated, "update")) return;
     } catch {
       toast("Não foi possível mostrar a avaliação simulada neste navegador.", "error");
       return;
@@ -324,7 +312,11 @@ export function ContractDemoFlow({ artist, isOwnProfile, simulationId, requested
     return `/contratos/novo?artista=${encodeURIComponent(artist.id)}&simulacao=${encodeURIComponent(id)}&papel=${role === "artist" ? "artista" : "contratante"}`;
   }
 
-  function simulateProposalSend() {
+  async function simulateProposalSend() {
+    if (isSupabaseConfigured() && !viewerId) {
+      toast("Entre na sua conta para criar um contrato fictício com este artista.", "error");
+      return;
+    }
     const createdSimulationId = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const simulation: StoredContractSimulation = {
       id: createdSimulationId,
@@ -336,10 +328,10 @@ export function ContractDemoFlow({ artist, isOwnProfile, simulationId, requested
       status: "pending_artist",
       createdAt: new Date().toISOString(),
     };
-    saveContractSimulation(simulation);
-    setStoredSimulation(simulation);
+    if (!await persistSimulation(simulation, "insert")) return;
     setActiveSimulationId(createdSimulationId);
-    addUserNotification(artist.id, {
+    const notificationCreated = await addUserNotification(artist.id, {
+      contractId: createdSimulationId,
       type: "contract-proposal",
       simulationRole: "artist",
       title: "Novo contrato fictício para analisar",
@@ -347,18 +339,22 @@ export function ContractDemoFlow({ artist, isOwnProfile, simulationId, requested
       href: simulationHref(createdSimulationId, "artist"),
       actionLabel: "Analisar contrato",
     });
+    if (!notificationCreated) {
+      toast("O contrato foi criado, mas a notificação não pôde ser enviada. Confira a migration do Supabase.", "error");
+      return;
+    }
     toast("Contrato fictício gerado. Abra a notificação para analisá-lo como artista.");
     router.push("/");
   }
 
-  function acceptContract() {
+  async function acceptContract() {
     if (!activeSimulationId) return;
-    const current = readContractSimulation(activeSimulationId);
-    if (!current) return;
+    const current = currentSimulation();
+    if (!current || !canActAs("artist", current)) return;
     const updated: StoredContractSimulation = { ...current, draft, status: "awaiting_payment", acceptedAt: new Date().toISOString() };
-    saveContractSimulation(updated);
-    setStoredSimulation(updated);
-    addUserNotification(current.contractorId, {
+    if (!await persistSimulation(updated, "update")) return;
+    await addUserNotification(current.contractorId, {
+      contractId: current.id,
       type: "contract-accepted",
       simulationRole: "contractor",
       title: "Contrato aceito: pagamento pendente",
@@ -370,14 +366,14 @@ export function ContractDemoFlow({ artist, isOwnProfile, simulationId, requested
     router.push("/");
   }
 
-  function requestAdjustment() {
+  async function requestAdjustment() {
     if (!activeSimulationId || !changeRequest.trim()) return;
-    const current = readContractSimulation(activeSimulationId);
-    if (!current) return;
+    const current = currentSimulation();
+    if (!current || !canActAs("artist", current)) return;
     const updated: StoredContractSimulation = { ...current, status: "adjustment_requested", changeRequest: changeRequest.trim() };
-    saveContractSimulation(updated);
-    setStoredSimulation(updated);
-    addUserNotification(current.contractorId, {
+    if (!await persistSimulation(updated, "update")) return;
+    await addUserNotification(current.contractorId, {
+      contractId: current.id,
       type: "contract-accepted",
       simulationRole: "contractor",
       title: "O artista sugeriu um ajuste",
@@ -388,16 +384,16 @@ export function ContractDemoFlow({ artist, isOwnProfile, simulationId, requested
     router.push("/");
   }
 
-  function acceptAdjustment() {
+  async function acceptAdjustment() {
     if (!activeSimulationId) return;
-    const current = readContractSimulation(activeSimulationId);
-    if (!current) return;
+    const current = currentSimulation();
+    if (!current || !canActAs("contractor", current)) return;
     const adjustedDraft = { ...current.draft, extraTerms: [current.draft.extraTerms, `Ajuste simulado aceito: ${current.changeRequest ?? changeRequest}`].filter(Boolean).join("\n") };
     const updated: StoredContractSimulation = { ...current, draft: adjustedDraft, status: "awaiting_payment", acceptedAt: new Date().toISOString() };
-    saveContractSimulation(updated);
+    if (!await persistSimulation(updated, "update")) return;
     setDraft(adjustedDraft);
-    setStoredSimulation(updated);
-    addUserNotification(current.contractorId, {
+    await addUserNotification(current.contractorId, {
+      contractId: current.id,
       type: "contract-payment",
       simulationRole: "contractor",
       title: "Ajuste aceito: pagamento pendente",
@@ -408,14 +404,14 @@ export function ContractDemoFlow({ artist, isOwnProfile, simulationId, requested
     router.push("/");
   }
 
-  function confirmPayment() {
+  async function confirmPayment() {
     if (!activeSimulationId || !paymentConfirmed) return;
-    const current = readContractSimulation(activeSimulationId);
-    if (!current) return;
+    const current = currentSimulation();
+    if (!current || !canActAs("contractor", current)) return;
     const updated: StoredContractSimulation = { ...current, status: "awaiting_checkin", paidAt: new Date().toISOString(), contractorCheckedIn: false, artistCheckedIn: false };
-    saveContractSimulation(updated);
-    setStoredSimulation(updated);
-    addUserNotification(current.contractorId, {
+    if (!await persistSimulation(updated, "update")) return;
+    await addUserNotification(current.contractorId, {
+      contractId: current.id,
       type: "contract-checkin",
       simulationRole: "contractor",
       title: "Pagamento confirmado: faça seu check-in",
@@ -423,7 +419,8 @@ export function ContractDemoFlow({ artist, isOwnProfile, simulationId, requested
       href: simulationHref(current.id, "contractor"),
       actionLabel: "Check-in do contratante",
     });
-    addUserNotification(current.artistId, {
+    await addUserNotification(current.artistId, {
+      contractId: current.id,
       type: "contract-checkin",
       simulationRole: "artist",
       title: "Evento liberado para check-in",
@@ -435,32 +432,64 @@ export function ContractDemoFlow({ artist, isOwnProfile, simulationId, requested
     router.push("/");
   }
 
-  function confirmCheckin() {
+  async function confirmCheckin() {
     if (!activeSimulationId || !checkinConfirmed) return;
-    const current = readContractSimulation(activeSimulationId);
-    if (!current) return;
-    const updated: StoredContractSimulation = {
+    const current = currentSimulation();
+    if (!current || !canActAs(simulationRole, current)) return;
+    let updated: StoredContractSimulation = {
       ...current,
       contractorCheckedIn: simulationRole === "contractor" ? true : current.contractorCheckedIn,
       artistCheckedIn: simulationRole === "artist" ? true : current.artistCheckedIn,
     };
+    if (isSupabaseConfigured()) {
+      const checkinColumn = simulationRole === "contractor" ? "contractor_checked_in" : "artist_checked_in";
+      const supabase = createClient();
+      const { data, error } = await supabase.from("simulated_contracts")
+        .update({ [checkinColumn]: true })
+        .eq("id", current.id)
+        .select(simulationSelect)
+        .single();
+      if (error || !data) {
+        console.error("Falha ao registrar check-in fictício:", error);
+        toast("Não foi possível registrar seu check-in. Atualize a página e tente novamente.", "error");
+        return;
+      }
+      updated = contractFromDatabase(data as SimulatedContractRow);
+      if (updated.contractorCheckedIn && updated.artistCheckedIn && updated.status !== "completed") {
+        const { data: completed, error: completionError } = await supabase.from("simulated_contracts")
+          .update({ status: "completed" })
+          .eq("id", current.id)
+          .select(simulationSelect)
+          .single();
+        if (completionError || !completed) {
+          toast("Os check-ins foram salvos, mas não foi possível finalizar o evento agora.", "error");
+          return;
+        }
+        updated = contractFromDatabase(completed as SimulatedContractRow);
+      }
+      saveContractSimulation(updated);
+      setStoredSimulation(updated);
+    } else {
+      updated.status = updated.contractorCheckedIn && updated.artistCheckedIn ? "completed" : "awaiting_checkin";
+      if (!await persistSimulation(updated, "update")) return;
+    }
     const bothCheckedIn = Boolean(updated.contractorCheckedIn && updated.artistCheckedIn);
-    updated.status = bothCheckedIn ? "completed" : "awaiting_checkin";
-    saveContractSimulation(updated);
-    setStoredSimulation(updated);
 
     if (bothCheckedIn) {
-      addUserNotification(updated.contractorId, {
+      await addUserNotification(updated.contractorId, {
+        contractId: updated.id,
         type: "contract-completed", simulationRole: "contractor", title: "Evento finalizado. Avaliar?", detail: `Os dois check-ins de ${draft.eventTitle} foram confirmados. Avalie a apresentação como contratante.`, href: simulationHref(updated.id, "contractor"), actionLabel: "Avaliar artista",
       });
-      addUserNotification(updated.artistId, {
+      await addUserNotification(updated.artistId, {
+        contractId: updated.id,
         type: "contract-completed", simulationRole: "artist", title: "Evento finalizado. Avaliar?", detail: `Os dois check-ins de ${draft.eventTitle} foram confirmados. Avalie a experiência como artista.`, href: simulationHref(updated.id, "artist"), actionLabel: "Avaliar contratante",
       });
       toast("Evento finalizado. As avaliações foram enviadas aos dois participantes.");
     } else {
       const waitingRole: SimulationRole = simulationRole === "contractor" ? "artist" : "contractor";
       const waitingProfileId = waitingRole === "artist" ? updated.artistId : updated.contractorId;
-      addUserNotification(waitingProfileId, {
+      await addUserNotification(waitingProfileId, {
+        contractId: updated.id,
         type: "contract-checkin", simulationRole: waitingRole, title: "Falta o seu check-in", detail: `A outra parte confirmou presença em ${draft.eventTitle}. Confirme também para finalizar o evento.`, href: simulationHref(updated.id, waitingRole), actionLabel: "Confirmar check-in",
       });
       toast("Seu check-in foi registrado. Falta a confirmação da outra parte.");
@@ -567,7 +596,7 @@ export function ContractDemoFlow({ artist, isOwnProfile, simulationId, requested
           <p>Esta tela demonstra como os detalhes de uma apresentação poderiam ser organizados entre contratante e artista. Datas, horários, valores e condições acima são uma proposta de exemplo, sujeita a conversa e confirmação de ambas as partes.</p>
           <p className="mt-2">Este protótipo não produz documento contratual, não verifica identidade, não processa pagamentos e não registra consentimentos em um sistema.</p>
           <h3 className="mb-1 mt-4 font-semibold text-white/85">Dados e privacidade nesta demonstração</h3>
-          <p>As informações digitadas servem apenas para montar este resumo temporário. Não inclua dados pessoais ou sensíveis; a proposta não é enviada nem gravada no sistema.</p>
+          <p>As informações digitadas são salvas nesta simulação e compartilhadas somente entre as duas contas participantes. Não inclua dados pessoais ou sensíveis nos campos da proposta.</p>
         </div>
         <div className="mt-4"><CheckOption tone={simulationRole} checked={buyerAccepted} onChange={setBuyerAccepted}>Li os detalhes e aceito continuar com esta proposta fictícia.</CheckOption></div>
         <button type="button" disabled={!buyerAccepted} onClick={simulateProposalSend} className={`mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-45 ${primaryActionClass}`}>Gerar contrato e notificar o artista <ArrowRight className="size-4" /></button>

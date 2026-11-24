@@ -1,9 +1,12 @@
 "use client";
 
-import { useCallback, useMemo, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowRight, CalendarDays, Clock3, FilePlus2, FileText, MapPin } from "lucide-react";
 import { CONTRACT_SIMULATIONS_CHANGE_EVENT, listContractSimulations, type ContractSimulationRole, type ContractSimulationStatus, type StoredContractSimulation } from "@/lib/contract-simulations";
+import { createClient } from "@/utils/supabase/client";
+import { isSupabaseConfigured } from "@/utils/supabase/config";
 
 type ContractBucket = "active" | "analysis" | "progress" | "completed";
 
@@ -135,7 +138,8 @@ function ContractCard({ contract, profileId }: { contract: StoredContractSimulat
   </article>;
 }
 
-export function ContractsDashboard({ profileId }: { profileId: string }) {
+export function ContractsDashboard({ profileId, sharedContracts }: { profileId: string; sharedContracts: StoredContractSimulation[] }) {
+  const router = useRouter();
   const subscribe = useCallback((callback: () => void) => {
     window.addEventListener("storage", callback);
     window.addEventListener(CONTRACT_SIMULATIONS_CHANGE_EVENT, callback);
@@ -146,7 +150,20 @@ export function ContractsDashboard({ profileId }: { profileId: string }) {
   }, []);
   const getSnapshot = useCallback(() => JSON.stringify(listContractSimulations(profileId)), [profileId]);
   const serialized = useSyncExternalStore(subscribe, getSnapshot, () => "[]");
-  const contracts = useMemo(() => JSON.parse(serialized) as StoredContractSimulation[], [serialized]);
+  const contracts = useMemo(() => {
+    const merged = new Map((JSON.parse(serialized) as StoredContractSimulation[]).map((contract) => [contract.id, contract]));
+    for (const contract of sharedContracts) merged.set(contract.id, contract);
+    return [...merged.values()].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+  }, [serialized, sharedContracts]);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+    const supabase = createClient();
+    const channel = supabase.channel(`contracts-dashboard-${profileId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "simulated_contracts" }, () => router.refresh())
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [profileId, router]);
 
   return <main className="mx-auto max-w-[1120px] px-4 pb-28 pt-[calc(env(safe-area-inset-top)+132px)] sm:px-6 lg:px-8 lg:pb-16 lg:pt-32">
     <div className="-mx-4 mb-6 flex items-center justify-between bg-[#6C1EE7] px-5 py-3.5 sm:-mx-6 sm:px-7 lg:mx-0 lg:mb-8 lg:bg-transparent lg:px-0 lg:py-0">
@@ -157,7 +174,7 @@ export function ContractsDashboard({ profileId }: { profileId: string }) {
 
     <div role="note" className="mb-7 flex items-start gap-3 rounded-2xl border border-[#FCB83D]/25 bg-[#FCB83D]/[0.08] px-4 py-3.5 text-sm leading-relaxed text-white/75">
       <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-[#FCB83D]/15 text-xs font-bold text-[#FCB83D]" aria-hidden="true">i</span>
-      <p><strong className="font-semibold text-white">Contratos fictícios.</strong> Esta área acompanha somente as simulações criadas neste navegador. Nenhum documento jurídico ou pagamento real é gerado.</p>
+      <p><strong className="font-semibold text-white">Contratos fictícios.</strong> Esta área acompanha as simulações das quais sua conta participa, inclusive propostas criadas por outros usuários. Nenhum documento jurídico ou pagamento real é gerado.</p>
     </div>
 
     <section aria-label="Resumo dos contratos" className="grid grid-cols-2 gap-3 lg:grid-cols-4">

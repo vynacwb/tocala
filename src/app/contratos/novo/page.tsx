@@ -5,6 +5,7 @@ import { featuredArtists } from "@/lib/artists";
 import { DEMO_REVIEWS } from "@/lib/demo-reviews";
 import { rankArtists } from "@/lib/artist-ranking";
 import { getArtistRankingPosition } from "@/lib/artist-ranking.server";
+import { contractFromDatabase, type SimulatedContractRow, type StoredContractSimulation } from "@/lib/contract-simulations";
 import { isSupabaseConfigured } from "@/utils/supabase/config";
 import { createClient } from "@/utils/supabase/server";
 
@@ -14,10 +15,12 @@ export const dynamic = "force-dynamic";
 export default async function NewContractPage({ searchParams }: { searchParams: Promise<{ artista?: string; simulacao?: string; papel?: string }> }) {
   const { artista: artistId, simulacao, papel } = await searchParams;
   if (!artistId) notFound();
+  const simulationId = simulacao && /^[a-zA-Z0-9-]{1,100}$/.test(simulacao) ? simulacao : undefined;
 
   let artist: { id: string; name: string; genre: string; imageUrl: string; rankingPosition?: number; estimatedPrice?: number | null; acceptsDifferentProposals?: boolean };
   let isOwnProfile = false;
   let viewerId: string | undefined;
+  let initialSimulation: StoredContractSimulation | undefined;
   if (isSupabaseConfigured()) {
     if (!/^[0-9a-f-]{36}$/i.test(artistId)) notFound();
     const supabase = await createClient();
@@ -49,6 +52,13 @@ export default async function NewContractPage({ searchParams }: { searchParams: 
       estimatedPrice: pricing?.estimated_price == null ? null : Number(pricing.estimated_price),
       acceptsDifferentProposals: pricing?.accepts_different_proposals ?? false,
     };
+    if (simulationId && user) {
+      const { data: simulation } = await supabase.from("simulated_contracts")
+        .select("id, artist_id, contractor_id, artist_name, artist_genre, draft, status, change_request, contractor_checked_in, artist_checked_in, contractor_review, artist_review, accepted_at, paid_at, created_at")
+        .eq("id", simulationId)
+        .maybeSingle();
+      if (simulation) initialSimulation = contractFromDatabase(simulation as SimulatedContractRow);
+    }
   } else {
     const sample = featuredArtists.find((item) => item.id === artistId) ?? featuredArtists[0];
     const rankingPosition = rankArtists(featuredArtists, [], DEMO_REVIEWS.map((review) => ({ artistId: review.artistId, rating: review.rating }))).find((item) => item.id === sample.id)?.rankingPosition;
@@ -56,7 +66,6 @@ export default async function NewContractPage({ searchParams }: { searchParams: 
     isOwnProfile = artistId === sample.id;
   }
 
-  const simulationId = simulacao && /^[a-zA-Z0-9-]{1,100}$/.test(simulacao) ? simulacao : undefined;
   const requestedRole = papel === "artista" ? "artist" : "contractor";
-  return <ContractDemoFlow artist={artist} isOwnProfile={isOwnProfile} simulationId={simulationId} requestedRole={requestedRole} viewerId={viewerId} />;
+  return <ContractDemoFlow artist={artist} isOwnProfile={isOwnProfile} simulationId={simulationId} requestedRole={requestedRole} viewerId={viewerId} initialSimulation={initialSimulation} />;
 }
