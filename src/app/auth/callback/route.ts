@@ -21,6 +21,12 @@ function loginErrorUrl(origin: string, code: string, next: string) {
   return url;
 }
 
+function profileLooksConfigured(profile: { username: string | null; genre: string; genres: string[]; career: string } | null, generatedUsername: string) {
+  if (!profile || !profile.username || profile.username === generatedUsername) return false;
+  const hasGenre = profile.genre.trim().length > 0 || (Array.isArray(profile.genres) && profile.genres.length > 0);
+  return hasGenre && profile.career.trim().length > 0;
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
@@ -43,16 +49,17 @@ export async function GET(request: NextRequest) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return NextResponse.redirect(loginErrorUrl(origin, "callback", next));
 
-      const { data: existingProfile } = await supabase.from("profiles").select("id").eq("id", user.id).maybeSingle();
+      const emailPrefix = (user.email?.split("@")[0] || "artista").toLowerCase().replace(/[^a-z0-9_]+/g, "").slice(0, 20) || "artista";
+      const generatedUsername = `${emailPrefix}-${user.id.slice(0, 6)}`;
+      const { data: existingProfile } = await supabase.from("profiles").select("id, username, genre, genres, career").eq("id", user.id).maybeSingle();
       if (!existingProfile) {
         const metadata = user.user_metadata as Record<string, unknown>;
         const fullName = metadataText(metadata, ["full_name", "name", "display_name", "preferred_username"]);
-        const emailPrefix = (user.email?.split("@")[0] || "artista").toLowerCase().replace(/[^a-z0-9_]+/g, "").slice(0, 20) || "artista";
         const { error: profileError } = await supabase.from("profiles").insert({
           id: user.id,
           full_name: fullName,
           real_name: fullName,
-          username: `${emailPrefix}-${user.id.slice(0, 6)}`,
+          username: generatedUsername,
           account_type: "MUSICO",
         });
         if (profileError && profileError.code !== "23505") {
@@ -60,7 +67,14 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      return NextResponse.redirect(new URL(next, origin));
+      const setupMarkedComplete = user.user_metadata?.profile_setup_completed === true;
+      const existingProfileIsConfigured = profileLooksConfigured(existingProfile, generatedUsername);
+      if (!setupMarkedComplete && existingProfileIsConfigured) {
+        await supabase.auth.updateUser({ data: { profile_setup_completed: true } });
+      }
+
+      const destination = setupMarkedComplete || existingProfileIsConfigured ? next : "/perfil/configuracoes";
+      return NextResponse.redirect(new URL(destination, origin));
     }
   }
 

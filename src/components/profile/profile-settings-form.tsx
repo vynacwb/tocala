@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 import { useActionState, useEffect, useMemo, useState, type ChangeEvent } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Camera, ChevronDown, DollarSign, ImagePlus, LoaderCircle, Mail, MapPin, Music2, Phone, Plus, Save, Sparkles, Trash2, UserRound } from "lucide-react";
 import { saveProfileSettings } from "@/app/perfil/configuracoes/actions";
 import { useToast } from "@/components/providers/app-providers";
@@ -53,6 +53,7 @@ function PhotoUrlField({ value, onChange, label }: { value: string; onChange: (v
 
 export function ProfileSettingsForm({ initialData, configured }: { initialData: ProfileSettingsData; configured: boolean }) {
   const [state, formAction, pending] = useActionState(saveProfileSettings, initialActionState);
+  const [skipping, setSkipping] = useState(false);
   const [realName, setRealName] = useState(initialData.realName);
   const [fullName, setFullName] = useState(initialData.fullName);
   const [username, setUsername] = useState(initialData.username);
@@ -73,6 +74,7 @@ export function ProfileSettingsForm({ initialData, configured }: { initialData: 
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [experiences, setExperiences] = useState<CareerExperience[]>(initialData.experiences);
   const { toast } = useToast();
+  const router = useRouter();
 
   useEffect(() => {
     if (!state.submissionId) return;
@@ -80,6 +82,25 @@ export function ProfileSettingsForm({ initialData, configured }: { initialData: 
   }, [state, toast]);
 
   const serializedExperiences = useMemo(() => JSON.stringify(experiences), [experiences]);
+
+  async function skipPersonalization() {
+    if (!configured) {
+      router.push("/perfil");
+      return;
+    }
+
+    setSkipping(true);
+    const supabase = createClient();
+    const { error } = await supabase.auth.updateUser({ data: { profile_setup_completed: true } });
+    if (error) {
+      setSkipping(false);
+      toast("Não foi possível concluir a configuração inicial. Tente novamente.", "error");
+      return;
+    }
+
+    router.push("/perfil");
+    router.refresh();
+  }
 
   async function uploadAvatar(event: ChangeEvent<HTMLInputElement>) {
     const file = event.currentTarget.files?.[0];
@@ -406,8 +427,8 @@ export function ProfileSettingsForm({ initialData, configured }: { initialData: 
       {!configured && <p className="rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">Conecte o Supabase para habilitar o salvamento. A tela está em modo de demonstração.</p>}
 
       <div className="sticky bottom-[calc(env(safe-area-inset-bottom)+12px)] z-30 flex flex-col-reverse items-stretch gap-2 rounded-2xl border border-white/10 bg-[#1A1A1A]/92 p-3 shadow-2xl shadow-black/50 backdrop-blur-xl min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-end sm:p-4">
-        <Link href="/perfil" className="tap-target inline-flex h-12 items-center justify-center rounded-xl border border-white/15 px-4 text-sm font-semibold text-white/70 transition-all duration-200 hover:border-white/30 hover:bg-white/[0.04] hover:text-white active:scale-[0.98]">Pular personalização</Link>
-        <Button type="submit" className="min-w-36" disabled={pending || !configured}>
+        <button type="button" onClick={skipPersonalization} disabled={pending || skipping} className="tap-target inline-flex h-12 items-center justify-center rounded-xl border border-white/15 px-4 text-sm font-semibold text-white/70 transition-all duration-200 hover:border-white/30 hover:bg-white/[0.04] hover:text-white active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-55">{skipping ? "Aguarde..." : "Pular personalização"}</button>
+        <Button type="submit" className="min-w-36" disabled={pending || skipping || !configured}>
           {pending ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />}
           {pending ? "Salvando..." : "Salvar perfil"}
         </Button>

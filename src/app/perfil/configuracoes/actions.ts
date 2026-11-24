@@ -147,6 +147,9 @@ export async function saveProfileSettings(
     if (musicianError) return errorState("O perfil foi salvo, mas a carreira não pôde ser atualizada.");
   }
 
+  const { error: onboardingError } = await supabase.auth.updateUser({ data: { profile_setup_completed: true } });
+  if (onboardingError) return errorState("O perfil foi salvo, mas não foi possível concluir a configuração inicial. Tente salvar novamente.");
+
   revalidatePath("/perfil");
   revalidatePath("/perfil/configuracoes");
   revalidatePath("/");
